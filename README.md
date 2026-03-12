@@ -1,7 +1,6 @@
 # Introduction
 
-This repository provides a **centralized set of guidelines, agents and prompts**
-to enable and govern the use of **GitHub Copilot and AI-assisted delivery** across projects.
+This repository provides a **centralized set of guidelines, agents and prompts** to enable and govern the use of **GitHub Copilot and AI-assisted delivery** across projects.
 
 The objective of this repository is **not** to deliver application code, but to:
 - standardize how AI tools are used
