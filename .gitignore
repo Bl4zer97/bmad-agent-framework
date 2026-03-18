@@ -1,0 +1,34 @@
+# Environment
+.env
+.env.local
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.venv/
+env/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+build/
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Output (keep folder, ignore content except .gitkeep)
+artifacts/output/*
+!artifacts/output/.gitkeep
+projects/*/src/*
+!projects/*/src/.gitkeep

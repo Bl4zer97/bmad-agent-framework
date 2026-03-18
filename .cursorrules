@@ -1,0 +1,34 @@
+# BMAD Framework — Global Rules for AI Assistant in Cursor/Windsurf/Copilot
+
+## Context
+This is a BMAD multi-agent framework repository for IT consulting.
+Always read .agent/SYSTEM_PROMPT.md before responding to any task.
+
+## Mandatory Behaviors
+- When asked to act as an agent, ALWAYS load the corresponding persona from /personas/
+- NEVER generate code without a corresponding artifact (PRD or TECH_SPEC) being present and approved
+- Always save documentation outputs to artifacts/output/<project-name>/
+- Use Italian language for documentation, English for code and inline comments
+- At the end of each agent task, write the explicit handoff to the next agent
+
+## Forbidden Actions
+- Do NOT skip the artifact phase to go directly to code
+- Do NOT mix responsibilities between different agents
+- Do NOT invent API endpoints or data schemas without explicit specification in TECH_SPEC
+- Do NOT mark a phase as complete without the corresponding output artifact saved
+
+## Workflow Order (STRICT)
+1. brief.md → Analyst → PRD.md
+2. PRD.md → Architect → TECH_SPEC.md + ARCHITECTURE.md
+3. TECH_SPEC.md → Developer → src/
+4. src/ → QA Tester → test_report.md
+5. All artifacts → Orchestrator → delivery_summary.md
+
+## File Conventions
+- Artifacts: artifacts/output/<project-name>/<ARTIFACT_NAME>.md
+- Code: projects/<project-name>/src/
+- Templates: artifacts/templates/
+
+## Agent Activation Syntax
+To activate an agent, write:
+"Attiva [AGENT_NAME]. Leggi personas/[agent_file].md e procedi con [TASK]."
