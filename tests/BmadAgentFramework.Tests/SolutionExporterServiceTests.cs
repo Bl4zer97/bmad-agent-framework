@@ -482,4 +482,421 @@ public class SolutionExporterServiceTests
             Directory.Delete(outputDir, recursive: true);
         }
     }
+
+    // ========================================================================
+    // TEST NUGET PACKAGES IN .csproj
+    // ========================================================================
+
+    [Fact]
+    public void GenerateCsprojForProject_ShouldIncludeNuGetPackages_WhenPackagesProvided()
+    {
+        // Arrange
+        var project = new SolutionProjectInfo("MyApp.Application", "Microsoft.NET.Sdk", [], [])
+        {
+            NuGetPackages = [("MediatR", "12.4.0"), ("FluentValidation", "11.9.2")]
+        };
+
+        // Act
+        var csproj = SolutionExporterService.GenerateCsprojForProject(project, false);
+
+        // Assert
+        csproj.Should().Contain("<PackageReference Include=\"MediatR\" Version=\"12.4.0\" />");
+        csproj.Should().Contain("<PackageReference Include=\"FluentValidation\" Version=\"11.9.2\" />");
+    }
+
+    [Fact]
+    public void GenerateCsprojForProject_ShouldNotIncludePackageReferenceItemGroup_WhenNoNuGetPackages()
+    {
+        // Arrange
+        var project = new SolutionProjectInfo("MyApp.Domain", "Microsoft.NET.Sdk", [], []);
+
+        // Act
+        var csproj = SolutionExporterService.GenerateCsprojForProject(project, false);
+
+        // Assert
+        csproj.Should().NotContain("PackageReference");
+    }
+
+    // ========================================================================
+    // TEST INFERNUGETPACKAGESFROMCODE
+    // ========================================================================
+
+    [Fact]
+    public void InferNuGetPackagesFromCode_ShouldMapKnownNamespaces_MediatR()
+    {
+        // Arrange
+        var code = """
+            using MediatR;
+            using MediatR.Pipeline;
+            namespace MyApp.Application.Handlers;
+            public class CreateTodoHandler : IRequestHandler<CreateTodoCommand, int> { }
+            """;
+
+        // Act
+        var packages = SolutionExporterService.InferNuGetPackagesFromCode(code);
+
+        // Assert
+        packages.Should().Contain(p => p.PackageName == "MediatR" && p.Version == "12.4.0");
+    }
+
+    [Fact]
+    public void InferNuGetPackagesFromCode_ShouldMapKnownNamespaces_TelegramBot()
+    {
+        // Arrange
+        var code = """
+            using Telegram.Bot;
+            using Telegram.Bot.Types;
+            namespace MyApp.Functions;
+            public class TelegramWebhook { }
+            """;
+
+        // Act
+        var packages = SolutionExporterService.InferNuGetPackagesFromCode(code);
+
+        // Assert
+        packages.Should().Contain(p => p.PackageName == "Telegram.Bot" && p.Version == "21.3.1");
+    }
+
+    [Fact]
+    public void InferNuGetPackagesFromCode_ShouldNotDuplicatePackages_WhenMultipleUsingsFromSamePackage()
+    {
+        // Arrange
+        var code = """
+            using FluentValidation;
+            using FluentValidation.Results;
+            using FluentValidation.Validators;
+            namespace MyApp.Application;
+            public class MyValidator { }
+            """;
+
+        // Act
+        var packages = SolutionExporterService.InferNuGetPackagesFromCode(code);
+
+        // Assert — solo un FluentValidation, non duplicati
+        packages.Where(p => p.PackageName == "FluentValidation").Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void InferNuGetPackagesFromCode_ShouldReturnEmpty_ForEmptyCode()
+    {
+        // Act
+        var packages = SolutionExporterService.InferNuGetPackagesFromCode(string.Empty);
+
+        // Assert
+        packages.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void InferNuGetPackagesFromCode_ShouldReturnEmpty_ForStandardLibraryUsings()
+    {
+        // Arrange — namespace standard .NET, non NuGet
+        var code = """
+            using System;
+            using System.Collections.Generic;
+            using Microsoft.Extensions.Logging;
+            using Microsoft.Extensions.DependencyInjection;
+            namespace MyApp.Domain;
+            public class MyService { }
+            """;
+
+        // Act
+        var packages = SolutionExporterService.InferNuGetPackagesFromCode(code);
+
+        // Assert — namespace Microsoft.Extensions.* standard non sono mappati
+        packages.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void InferNuGetPackagesFromCode_ShouldMapAzureAIProjects()
+    {
+        // Arrange
+        var code = """
+            using Azure.AI.Projects;
+            using Azure.Identity;
+            namespace MyApp.Infrastructure.Services;
+            public class AiAgentService { }
+            """;
+
+        // Act
+        var packages = SolutionExporterService.InferNuGetPackagesFromCode(code);
+
+        // Assert
+        packages.Should().Contain(p => p.PackageName == "Azure.AI.Projects" && p.Version == "1.0.0-beta.6");
+        packages.Should().Contain(p => p.PackageName == "Azure.Identity" && p.Version == "1.13.1");
+    }
+
+    // ========================================================================
+    // TEST EXTRACTCODEBLOCKS — JSON BLOCKS
+    // ========================================================================
+
+    [Fact]
+    public void ExtractCodeBlocks_ShouldExtractJsonBlock_WhenMarkdownHeadingPresent()
+    {
+        // Arrange
+        var markdown = """
+            ### src/MyApp.API/appsettings.json
+            ```json
+            { "Logging": { "LogLevel": { "Default": "Information" } } }
+            ```
+            """;
+
+        // Act
+        var blocks = SolutionExporterService.ExtractCodeBlocks(markdown);
+
+        // Assert
+        blocks.Should().HaveCount(1);
+        blocks[0].FileName.Should().Be("src/MyApp.API/appsettings.json");
+        blocks[0].Content.Should().Contain("Logging");
+    }
+
+    [Fact]
+    public void ExtractCodeBlocks_ShouldExtractXmlBlock_WhenMarkdownHeadingPresent()
+    {
+        // Arrange
+        var markdown = """
+            ### src/MyApp.Functions/host.json
+            ```xml
+            <configuration><startup /></configuration>
+            ```
+            """;
+
+        // Act
+        var blocks = SolutionExporterService.ExtractCodeBlocks(markdown);
+
+        // Assert
+        blocks.Should().HaveCount(1);
+        blocks[0].FileName.Should().Be("src/MyApp.Functions/host.json");
+        blocks[0].Content.Should().Contain("configuration");
+    }
+
+    [Fact]
+    public void ExtractCodeBlocks_ShouldIgnoreJsonBlock_WhenNoMarkdownHeading()
+    {
+        // Arrange — blocco JSON senza heading: deve essere ignorato (non c'è path)
+        var markdown = """
+            Configurazione applicazione:
+            ```json
+            { "key": "value" }
+            ```
+            """;
+
+        // Act
+        var blocks = SolutionExporterService.ExtractCodeBlocks(markdown);
+
+        // Assert
+        blocks.Should().BeEmpty("i blocchi JSON senza heading Markdown non hanno path e vengono ignorati");
+    }
+
+    [Fact]
+    public void ExtractCodeBlocks_ShouldExtractMixedCsharpAndJsonBlocks()
+    {
+        // Arrange
+        var markdown = """
+            ### src/MyApp.API/Controllers/HomeController.cs
+            ```csharp
+            namespace MyApp.API.Controllers;
+            public class HomeController { }
+            ```
+
+            ### src/MyApp.API/appsettings.json
+            ```json
+            { "ConnectionStrings": { "Default": "Server=." } }
+            ```
+            """;
+
+        // Act
+        var blocks = SolutionExporterService.ExtractCodeBlocks(markdown);
+
+        // Assert
+        blocks.Should().HaveCount(2);
+        blocks.Should().Contain(b => b.FileName == "src/MyApp.API/Controllers/HomeController.cs");
+        blocks.Should().Contain(b => b.FileName == "src/MyApp.API/appsettings.json");
+    }
+
+    // ========================================================================
+    // TEST PARSESOLUTIONSTRUCTURE — NuGetPackages
+    // ========================================================================
+
+    [Fact]
+    public void ParseSolutionStructure_ShouldParseNuGetPackages_WhenPresentInBlock()
+    {
+        // Arrange
+        var architecture = """
+            ## 9. Struttura del Progetto .NET
+
+            ```solution-structure
+            SOLUTION: MyApp
+            PROJECTS:
+            - Name: MyApp.Application | SDK: Microsoft.NET.Sdk | References: MyApp.Domain
+              Folders: Services/, DTOs/
+              NuGetPackages: MediatR/12.4.0, FluentValidation/11.9.2
+            - Name: MyApp.API | SDK: Microsoft.NET.Sdk.Web | References: MyApp.Application
+              Folders: Controllers/
+              NuGetPackages: Swashbuckle.AspNetCore/6.9.0
+            ```
+            """;
+
+        // Act
+        var (_, projects) = SolutionExporterService.ParseSolutionStructure(architecture);
+
+        // Assert
+        var app = projects.Should().ContainSingle(p => p.Name == "MyApp.Application").Subject;
+        app.NuGetPackages.Should().HaveCount(2);
+        app.NuGetPackages.Should().Contain(p => p.PackageName == "MediatR" && p.Version == "12.4.0");
+        app.NuGetPackages.Should().Contain(p => p.PackageName == "FluentValidation" && p.Version == "11.9.2");
+
+        var api = projects.Should().ContainSingle(p => p.Name == "MyApp.API").Subject;
+        api.NuGetPackages.Should().HaveCount(1);
+        api.NuGetPackages.Should().Contain(p => p.PackageName == "Swashbuckle.AspNetCore" && p.Version == "6.9.0");
+    }
+
+    [Fact]
+    public void ParseSolutionStructure_ShouldReturnEmptyNuGetPackages_WhenNotPresentInBlock()
+    {
+        // Arrange — struttura senza NuGetPackages (backward compatibility)
+        var architecture = """
+            ```solution-structure
+            SOLUTION: MyApp
+            PROJECTS:
+            - Name: MyApp.Domain | SDK: Microsoft.NET.Sdk | References: (nessuno)
+              Folders: Entities/
+            ```
+            """;
+
+        // Act
+        var (_, projects) = SolutionExporterService.ParseSolutionStructure(architecture);
+
+        // Assert — nessun NuGet definito, ma il progetto è parsato correttamente
+        var domain = projects.Should().ContainSingle(p => p.Name == "MyApp.Domain").Subject;
+        domain.NuGetPackages.Should().BeEmpty();
+    }
+
+    // ========================================================================
+    // TEST CREATEPROJECTSFROMSTRUCTURE — cartelle vuote con .gitkeep
+    // ========================================================================
+
+    [Fact]
+    public void WriteSolutionToDisk_ShouldCreateEmptyFolders_WithGitkeep_WhenNoFilesInFolder()
+    {
+        // Arrange
+        var outputDir = Path.Combine(Path.GetTempPath(), $"bmad-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(outputDir);
+
+        try
+        {
+            var architecture = """
+                ```solution-structure
+                SOLUTION: MyApp
+                PROJECTS:
+                - Name: MyApp.Domain | SDK: Microsoft.NET.Sdk | References: (nessuno)
+                  Folders: Entities/, ValueObjects/, Events/
+                ```
+                """;
+
+            var files = new List<(string FileName, string Content)>
+            {
+                ("src/MyApp.Domain/Entities/Todo.cs", "namespace MyApp.Domain.Entities;\npublic record Todo;"),
+            };
+
+            // Act
+            var solutionDir = SolutionExporterService.WriteSolutionToDisk(
+                outputDir, "MyApp", files, architecture);
+
+            // Assert: Entities ha file .cs, quindi NON dovrebbe avere .gitkeep
+            // (ma la cartella esiste)
+            Directory.Exists(Path.Combine(solutionDir, "src", "MyApp.Domain", "Entities"))
+                .Should().BeTrue();
+
+            // Assert: ValueObjects e Events sono vuote → devono avere .gitkeep
+            File.Exists(Path.Combine(solutionDir, "src", "MyApp.Domain", "ValueObjects", ".gitkeep"))
+                .Should().BeTrue("cartelle vuote definite dall'Architect devono avere .gitkeep");
+            File.Exists(Path.Combine(solutionDir, "src", "MyApp.Domain", "Events", ".gitkeep"))
+                .Should().BeTrue("cartelle vuote definite dall'Architect devono avere .gitkeep");
+        }
+        finally
+        {
+            Directory.Delete(outputDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void WriteSolutionToDisk_ShouldIncludeNuGetPackagesInCsproj_WhenDefinedByArchitect()
+    {
+        // Arrange
+        var outputDir = Path.Combine(Path.GetTempPath(), $"bmad-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(outputDir);
+
+        try
+        {
+            var architecture = """
+                ```solution-structure
+                SOLUTION: MyApp
+                PROJECTS:
+                - Name: MyApp.Application | SDK: Microsoft.NET.Sdk | References: (nessuno)
+                  Folders: Services/
+                  NuGetPackages: MediatR/12.4.0, FluentValidation/11.9.2
+                ```
+                """;
+
+            var files = new List<(string FileName, string Content)>
+            {
+                ("src/MyApp.Application/Services/MyService.cs", "namespace MyApp.Application.Services;\npublic class MyService { }"),
+            };
+
+            // Act
+            var solutionDir = SolutionExporterService.WriteSolutionToDisk(
+                outputDir, "MyApp", files, architecture);
+
+            // Assert: il .csproj contiene i PackageReference
+            var csprojPath = Path.Combine(solutionDir, "src", "MyApp.Application", "MyApp.Application.csproj");
+            File.Exists(csprojPath).Should().BeTrue();
+            var csprojContent = File.ReadAllText(csprojPath);
+            csprojContent.Should().Contain("<PackageReference Include=\"MediatR\" Version=\"12.4.0\" />");
+            csprojContent.Should().Contain("<PackageReference Include=\"FluentValidation\" Version=\"11.9.2\" />");
+        }
+        finally
+        {
+            Directory.Delete(outputDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void WriteSolutionToDisk_ShouldInferNuGetPackages_WhenNotDefinedByArchitect()
+    {
+        // Arrange
+        var outputDir = Path.Combine(Path.GetTempPath(), $"bmad-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(outputDir);
+
+        try
+        {
+            var architecture = """
+                ```solution-structure
+                SOLUTION: MyApp
+                PROJECTS:
+                - Name: MyApp.Application | SDK: Microsoft.NET.Sdk | References: (nessuno)
+                  Folders: Services/
+                ```
+                """;
+
+            // Codice con using MediatR — il SolutionExporter deve inferire il NuGet
+            var files = new List<(string FileName, string Content)>
+            {
+                ("src/MyApp.Application/Services/MyService.cs",
+                    "using MediatR;\nnamespace MyApp.Application.Services;\npublic class MyService { }"),
+            };
+
+            // Act
+            var solutionDir = SolutionExporterService.WriteSolutionToDisk(
+                outputDir, "MyApp", files, architecture);
+
+            // Assert: il .csproj include MediatR inferito automaticamente
+            var csprojPath = Path.Combine(solutionDir, "src", "MyApp.Application", "MyApp.Application.csproj");
+            var csprojContent = File.ReadAllText(csprojPath);
+            csprojContent.Should().Contain("<PackageReference Include=\"MediatR\" Version=\"12.4.0\" />");
+        }
+        finally
+        {
+            Directory.Delete(outputDir, recursive: true);
+        }
+    }
 }

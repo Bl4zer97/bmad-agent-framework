@@ -33,6 +33,27 @@ public class DeveloperAgent : IAgent
         - Il path DEVE iniziare con `src/` per i progetti sorgente, `tests/` per i test
         - L'Architect è SENIOR sulla struttura: le sue decisioni sono legge
 
+        REGOLA DI COMPLETEZZA (CRITICA):
+        - OGNI tipo custom che usi (interfaccia, classe, record, enum) DEVE essere definito in uno dei file che generi
+        - Per ogni `using NomeProgetto.X.Y;` che scrivi, DEVE esistere un file in `src/NomeProgetto.X/Y/` che definisce i tipi usati
+        - Prima di terminare, verifica mentalmente che per ogni tipo referenziato esista il file corrispondente
+        - Se un tipo viene da un pacchetto NuGet esterno (es. ILogger, IMediator, ITelegramBotClient), NON serve definirlo
+        - Se un tipo è custom del progetto (es. ITodoRepository, CreateTodoRequest, IProjectClient), DEVI generare il file
+        - Meglio generare MENO file ma TUTTI COMPLETI piuttosto che tanti file con tipi mancanti
+
+        REGOLA ENTRY POINT (CRITICA):
+        - Il progetto principale (API, Web, Worker, Azure Functions) DEVE avere un file Program.cs
+        - Program.cs DEVE configurare: DI container, middleware, routing, logging
+        - Program.cs DEVE registrare tutti i servizi definiti nei layer Application e Infrastructure
+        - Se il progetto usa Azure Functions Worker, Program.cs DEVE usare HostBuilder con .ConfigureFunctionsWorkerDefaults()
+        - Genera sempre Program.cs come uno dei primi file
+
+        REGOLA FILE DI CONFIGURAZIONE:
+        - Per progetti API: genera `appsettings.json` e `appsettings.Development.json`
+        - Per Azure Functions: genera `host.json` e `local.settings.json`
+        - Per Worker Services: genera `appsettings.json`
+        - Usa heading Markdown `### src/NomeProgetto.API/appsettings.json` seguiti da blocco ```json
+
         Principi di codifica che segui:
         - C# 12 features: record types, primary constructors, collection expressions
         - Async/await ovunque per operazioni I/O
