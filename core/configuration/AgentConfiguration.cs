@@ -15,8 +15,8 @@ public class AgentConfiguration
     /// </summary>
     public string SystemPrompt { get; set; } = string.Empty;
 
-    /// <summary>Modello Azure OpenAI da usare (es. "gpt-4o", "gpt-4-turbo")</summary>
-    public string ModelDeploymentName { get; set; } = "gpt-4o";
+    /// <summary>Modello Azure OpenAI da usare (es. "gpt-4o-mini", "gpt-4-turbo")</summary>
+    public string ModelDeploymentName { get; set; } = "gpt-4o-mini";
 
     /// <summary>
     /// Temperatura del modello (0.0 = deterministico, 1.0 = creativo).

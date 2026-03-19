@@ -12,7 +12,7 @@ namespace BmadAgentFramework.Core.Services;
 
 /// <summary>
 /// Servizio di integrazione con Azure OpenAI.
-/// Gestisce tutte le chiamate al modello GPT-4o con retry logic (Polly),
+/// Gestisce tutte le chiamate al modello gpt-4o-mini con retry logic (Polly),
 /// system prompt per agente e gestione degli errori.
 ///
 /// Flusso di una chiamata:

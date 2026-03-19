@@ -1,3 +1,5 @@
+using BmadAgentFramework.Core.Models;
+
 namespace BmadAgentFramework.Core.Configuration;
 
 /// <summary>
@@ -20,8 +22,8 @@ public class FrameworkOptions
     /// </summary>
     public string AzureOpenAIApiKey { get; set; } = string.Empty;
 
-    /// <summary>Nome del deployment GPT-4o su Azure OpenAI</summary>
-    public string DefaultModelDeployment { get; set; } = "gpt-4o";
+    /// <summary>Nome del deployment gpt-4o-mini su Azure OpenAI</summary>
+    public string DefaultModelDeployment { get; set; } = "gpt-4o-mini";
 
     /// <summary>
     /// Connection string di Azure Service Bus per la comunicazione tra agenti.
@@ -54,4 +56,7 @@ public class FrameworkOptions
 
     /// <summary>Indica se siamo in modalità sviluppo locale</summary>
     public bool IsLocalDevelopment => ExecutionMode == "InMemory";
+
+    /// <summary>Agenti abilitati. Se vuoto, li registra tutti.</summary>
+    public List<string> EnabledAgents { get; set; } = new();
 }

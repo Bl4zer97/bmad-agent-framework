@@ -4,6 +4,7 @@ using BmadAgentFramework.Agents.Developer;
 using BmadAgentFramework.Agents.DevOps;
 using BmadAgentFramework.Agents.Orchestrator;
 using BmadAgentFramework.Agents.QA;
+using BmadAgentFramework.Core.Abstractions;
 using BmadAgentFramework.Core.Configuration;
 using BmadAgentFramework.Core.Models;
 using BmadAgentFramework.Core.Services;
@@ -11,6 +12,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Serilog;
 
 // ============================================================================
@@ -81,18 +83,27 @@ try
             services.AddSingleton<WorkflowEngine>();
             services.AddSingleton<OrchestratorAgent>(provider =>
             {
+                var opts = provider.GetRequiredService<IOptions<FrameworkOptions>>().Value;
                 var orchestrator = new OrchestratorAgent(
                     provider.GetRequiredService<IArtifactStore>(),
                     provider.GetRequiredService<IMemoryService>(),
                     provider.GetRequiredService<ILogger<OrchestratorAgent>>(),
                     provider.GetRequiredService<WorkflowEngine>());
 
-                // Registra gli agenti nell'orchestratore in ordine di esecuzione
-                orchestrator.RegisterAgent(provider.GetRequiredService<AnalystAgent>());
-                orchestrator.RegisterAgent(provider.GetRequiredService<ArchitectAgent>());
-                orchestrator.RegisterAgent(provider.GetRequiredService<DeveloperAgent>());
-                orchestrator.RegisterAgent(provider.GetRequiredService<QAAgent>());
-                orchestrator.RegisterAgent(provider.GetRequiredService<DevOpsAgent>());
+                var allAgents = new (string Name, Func<IAgent> Factory)[]
+                   {
+                        ("AnalystAgent",    () => provider.GetRequiredService<AnalystAgent>()),
+                        ("ArchitectAgent",  () => provider.GetRequiredService<ArchitectAgent>()),
+                        ("DeveloperAgent",  () => provider.GetRequiredService<DeveloperAgent>()),
+                        ("QAAgent",         () => provider.GetRequiredService<QAAgent>()),
+                        ("DevOpsAgent",     () => provider.GetRequiredService<DevOpsAgent>()),
+                   };
+
+                foreach (var (name, factory) in allAgents)
+                {
+                    if (opts.EnabledAgents.Count == 0 || opts.EnabledAgents.Contains(name))
+                        orchestrator.RegisterAgent(factory());
+                }
 
                 return orchestrator;
             });

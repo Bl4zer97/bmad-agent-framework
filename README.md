@@ -56,15 +56,11 @@ Ogni agente ha un ruolo preciso e passa il proprio output all'agente successivo,
 ## ⚡ Quick Start
 
 ```bash
-# 1. Clona il repository
-git clone https://github.com/Bl4zer97/bmad-agent-framework.git
-cd bmad-agent-framework
-
-# 2. Configura le credenziali Azure OpenAI
+# 1. Configura le credenziali Azure OpenAI
 cp src/BmadAgentFramework/appsettings.json src/BmadAgentFramework/appsettings.local.json
 # Modifica appsettings.local.json con il tuo endpoint e API key
 
-# 3. Avvia il framework con una richiesta di esempio
+# 2. Avvia il framework con una richiesta di esempio
 dotnet run --project src/BmadAgentFramework "Crea una REST API per gestire una lista di task"
 ```
 
