@@ -15,7 +15,15 @@ public record SolutionProjectInfo(
     string Name,
     string Sdk,
     string[] References,
-    string[] Folders);
+    string[] Folders)
+{
+    /// <summary>
+    /// Pacchetti NuGet richiesti dal progetto (tuple Nome/Versione).
+    /// Definiti dall'Architect nella riga <c>NuGetPackages:</c> del blocco solution-structure,
+    /// oppure inferiti automaticamente dai namespace <c>using</c> presenti nel codice.
+    /// </summary>
+    public (string PackageName, string Version)[] NuGetPackages { get; init; } = [];
+};
 
 /// <summary>
 /// Servizio deterministico per il parsing del Markdown prodotto dal DeveloperAgent
@@ -29,12 +37,12 @@ public record SolutionProjectInfo(
 public static class SolutionExporterService
 {
     /// <summary>
-    /// Estrae tutti i blocchi di codice C# da un documento Markdown.
-    /// Cerca blocchi delimitati da ```csharp o ```cs.
+    /// Estrae tutti i blocchi di codice da un documento Markdown.
+    /// Cerca blocchi C# (```csharp, ```cs), JSON (```json) e XML (```xml).
     ///
     /// Strategia per determinare il path del file (in ordine di priorità):
     /// 1. Heading Markdown <c>### path/to/File.cs</c> nella riga precedente al blocco
-    /// 2. Commento <c>// File: path/File.cs</c> nella prima riga del blocco (fallback)
+    /// 2. Commento <c>// File: path/File.cs</c> nella prima riga del blocco (fallback, solo C#)
     /// 3. Nome generico <c>GeneratedCodeN.cs</c> se nessuno dei precedenti è trovato
     ///
     /// Il path restituito può essere un path relativo completo (es. <c>src/MyApp.Domain/Entities/Todo.cs</c>).
@@ -45,7 +53,7 @@ public static class SolutionExporterService
     {
         var results = new List<(string FileName, string Content)>();
         var blockPattern = new Regex(
-            @"```(?:csharp|cs)\s*\n(.*?)```",
+            @"```(?<lang>csharp|cs|json|xml)\s*\n(?<content>.*?)```",
             RegexOptions.Singleline | RegexOptions.IgnoreCase);
 
         var matches = blockPattern.Matches(markdownContent);
@@ -53,14 +61,15 @@ public static class SolutionExporterService
 
         foreach (Match match in matches)
         {
-            var blockContent = match.Groups[1].Value.TrimEnd();
+            var lang = match.Groups["lang"].Value.ToLowerInvariant();
+            var blockContent = match.Groups["content"].Value.TrimEnd();
 
             if (string.IsNullOrWhiteSpace(blockContent))
                 continue;
 
             string fileName;
 
-            // 1. Cerca un heading Markdown "### path/to/File.cs" immediatamente prima del blocco
+            // 1. Cerca un heading Markdown "### path/to/File.ext" immediatamente prima del blocco
             var textBefore = markdownContent[..match.Index];
             var lastNonEmptyLine = textBefore
                 .TrimEnd()
@@ -68,14 +77,15 @@ public static class SolutionExporterService
                 .LastOrDefault()
                 ?.Trim() ?? string.Empty;
 
-            var headingMatch = Regex.Match(lastNonEmptyLine, @"^#{1,6}\s+(.+\.cs)\s*$");
+            // Accetta .cs, .json, .xml nel heading
+            var headingMatch = Regex.Match(lastNonEmptyLine, @"^#{1,6}\s+(.+\.(?:cs|json|xml))\s*$");
             if (headingMatch.Success)
             {
                 fileName = headingMatch.Groups[1].Value.Trim();
             }
-            else
+            else if (lang is "csharp" or "cs")
             {
-                // 2. Fallback: cerca "// File: path/File.cs" nella prima riga del blocco
+                // 2. Fallback: cerca "// File: path/File.cs" nella prima riga del blocco (solo C#)
                 var firstLine = blockContent.Split('\n')[0].Trim();
                 var fileCommentMatch = Regex.Match(firstLine, @"^//\s*File:\s*(.+\.cs)\s*$");
 
@@ -96,6 +106,11 @@ public static class SolutionExporterService
                     // 3. Nome generico
                     fileName = $"GeneratedCode{genericCounter++}.cs";
                 }
+            }
+            else
+            {
+                // Blocco JSON/XML senza heading: ignora (non ha senso senza path)
+                continue;
             }
 
             results.Add((fileName, blockContent));
@@ -166,10 +181,13 @@ public static class SolutionExporterService
 
             // Cerca la riga Folders subito dopo
             string[] folders = [];
-            if (i + 1 < lines.Length)
+            (string PackageName, string Version)[] nugetPackages = [];
+            int offset = 1;
+
+            if (i + offset < lines.Length)
             {
                 var foldersMatch = Regex.Match(
-                    lines[i + 1],
+                    lines[i + offset],
                     @"^\s+Folders:\s*(.+)$");
                 if (foldersMatch.Success)
                 {
@@ -178,10 +196,36 @@ public static class SolutionExporterService
                         .Select(f => f.Trim().TrimEnd('/'))
                         .Where(f => f.Length > 0)
                         .ToArray();
+                    offset++;
                 }
             }
 
-            projects.Add(new SolutionProjectInfo(name, sdk, refs, folders));
+            // Cerca la riga NuGetPackages subito dopo Folders (o dopo la riga progetto)
+            if (i + offset < lines.Length)
+            {
+                var nugetMatch = Regex.Match(
+                    lines[i + offset],
+                    @"^\s+NuGetPackages:\s*(.+)$");
+                if (nugetMatch.Success)
+                {
+                    nugetPackages = nugetMatch.Groups[1].Value
+                        .Split(',')
+                        .Select(p =>
+                        {
+                            var parts = p.Trim().Split('/');
+                            return parts.Length == 2
+                                ? (PackageName: parts[0].Trim(), Version: parts[1].Trim())
+                                : (PackageName: parts[0].Trim(), Version: string.Empty);
+                        })
+                        .Where(p => p.PackageName.Length > 0)
+                        .ToArray();
+                }
+            }
+
+            projects.Add(new SolutionProjectInfo(name, sdk, refs, folders)
+            {
+                NuGetPackages = nugetPackages
+            });
         }
 
         return (solutionName, projects);
@@ -263,11 +307,22 @@ public static class SolutionExporterService
 
         if (parsedProjects.Count > 0)
         {
+            // Applica NuGet inference come fallback sui progetti che non hanno NuGet definiti
+            var allCode = string.Join("\n", files.Select(f => f.Content));
+            parsedProjects = parsedProjects
+                .Select(p => p.NuGetPackages.Length == 0
+                    ? p with { NuGetPackages = InferNuGetPackagesFromCode(allCode) }
+                    : p)
+                .ToList();
+
             projectsForSln = CreateProjectsFromStructure(solutionDir, parsedProjects);
         }
         else
         {
-            projectsForSln = InferAndCreateProjects(solutionDir, files, safeName);
+            // Senza architettura: inferisce NuGet dal codice e li applica a tutti i progetti
+            var allCode = string.Join("\n", files.Select(f => f.Content));
+            var inferredNugets = InferNuGetPackagesFromCode(allCode);
+            projectsForSln = InferAndCreateProjects(solutionDir, files, safeName, inferredNugets);
         }
 
         // Step 4: Generare il file .sln con tutti i progetti
@@ -285,6 +340,8 @@ public static class SolutionExporterService
 
     /// <summary>
     /// Crea i .csproj per ogni progetto definito nella struttura parsata dell'Architect.
+    /// Crea anche le sottocartelle definite dall'Architect con un file <c>.gitkeep</c>
+    /// nelle cartelle che non contengono file .cs generati.
     /// </summary>
     private static List<(SolutionProjectInfo Project, string CsprojRelativePath)> CreateProjectsFromStructure(
         string solutionDir,
@@ -302,6 +359,17 @@ public static class SolutionExporterService
                 projectRelDir.Replace('/', Path.DirectorySeparatorChar));
 
             Directory.CreateDirectory(projectFullDir);
+
+            // Crea le sottocartelle definite dall'Architect, con .gitkeep nelle cartelle vuote
+            foreach (var folder in project.Folders)
+            {
+                var subFolderPath = Path.Combine(projectFullDir, folder);
+                Directory.CreateDirectory(subFolderPath);
+
+                var gitkeepPath = Path.Combine(subFolderPath, ".gitkeep");
+                if (!File.Exists(gitkeepPath) && !Directory.EnumerateFiles(subFolderPath).Any())
+                    File.WriteAllText(gitkeepPath, string.Empty, Encoding.UTF8);
+            }
 
             var csprojContent = GenerateCsprojForProject(project, isTest);
             var csprojFileName = $"{project.Name}.csproj";
@@ -323,7 +391,8 @@ public static class SolutionExporterService
     private static List<(SolutionProjectInfo Project, string CsprojRelativePath)> InferAndCreateProjects(
         string solutionDir,
         List<(string FileName, string Content)> files,
-        string defaultProjectName)
+        string defaultProjectName,
+        (string PackageName, string Version)[]? inferredNugets = null)
     {
         var result = new List<(SolutionProjectInfo Project, string CsprojRelativePath)>();
         var projectPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -355,7 +424,10 @@ public static class SolutionExporterService
                 projectPath.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(projectFullDir);
 
-            var project = new SolutionProjectInfo(projName, "Microsoft.NET.Sdk", [], []);
+            var project = new SolutionProjectInfo(projName, "Microsoft.NET.Sdk", [], [])
+            {
+                NuGetPackages = inferredNugets ?? []
+            };
             var csprojContent = GenerateCsprojForProject(project, isTest);
             var csprojFileName = $"{projName}.csproj";
             File.WriteAllText(
@@ -410,8 +482,102 @@ public static class SolutionExporterService
             sb.AppendLine("  </ItemGroup>");
         }
 
+        // Aggiunge i PackageReference NuGet definiti dall'Architect o inferiti dal codice
+        var nugets = project.NuGetPackages ?? [];
+        if (nugets.Length > 0)
+        {
+            sb.AppendLine("  <ItemGroup>");
+            foreach (var (packageName, version) in nugets)
+            {
+                if (string.IsNullOrWhiteSpace(version))
+                    sb.AppendLine($"""    <PackageReference Include="{packageName}" />""");
+                else
+                    sb.AppendLine($"""    <PackageReference Include="{packageName}" Version="{version}" />""");
+            }
+
+            sb.AppendLine("  </ItemGroup>");
+        }
+
         sb.Append("</Project>");
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Mappa statica da prefisso namespace a pacchetto NuGet e versione.
+    /// Usata da <see cref="InferNuGetPackagesFromCode"/> per determinare i pacchetti
+    /// necessari analizzando le direttive <c>using</c> nel codice C# generato.
+    /// </summary>
+    private static readonly Dictionary<string, (string PackageName, string Version)> NamespaceToNuGetMap =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["MediatR"]                                                         = ("MediatR", "12.4.0"),
+            ["FluentValidation.AspNetCore"]                                     = ("FluentValidation.AspNetCore", "11.3.0"),
+            ["FluentValidation"]                                                = ("FluentValidation", "11.9.2"),
+            ["Microsoft.EntityFrameworkCore.SqlServer"]                         = ("Microsoft.EntityFrameworkCore.SqlServer", "8.0.11"),
+            ["Microsoft.EntityFrameworkCore.Design"]                            = ("Microsoft.EntityFrameworkCore.Design", "8.0.11"),
+            ["Microsoft.EntityFrameworkCore"]                                   = ("Microsoft.EntityFrameworkCore", "8.0.11"),
+            ["Azure.Identity"]                                                  = ("Azure.Identity", "1.13.1"),
+            ["Azure.Security.KeyVault"]                                         = ("Azure.Security.KeyVault.Secrets", "4.6.0"),
+            ["Azure.Messaging.ServiceBus"]                                      = ("Azure.Messaging.ServiceBus", "7.18.2"),
+            ["Azure.Storage.Blobs"]                                             = ("Azure.Storage.Blobs", "12.22.2"),
+            ["Azure.AI.Projects"]                                               = ("Azure.AI.Projects", "1.0.0-beta.6"),
+            ["Telegram.Bot"]                                                    = ("Telegram.Bot", "21.3.1"),
+            ["Swashbuckle"]                                                     = ("Swashbuckle.AspNetCore", "6.9.0"),
+            ["Polly"]                                                           = ("Polly", "8.5.0"),
+            ["Serilog"]                                                         = ("Serilog.AspNetCore", "8.0.3"),
+            ["AutoMapper"]                                                      = ("AutoMapper", "13.0.1"),
+            ["Mapster"]                                                         = ("Mapster", "7.4.0"),
+            ["Microsoft.Azure.Functions.Worker.Extensions.Http.AspNetCore"]     = ("Microsoft.Azure.Functions.Worker.Extensions.Http.AspNetCore", "1.3.2"),
+            ["Microsoft.Azure.Functions.Worker.Extensions.Http"]                = ("Microsoft.Azure.Functions.Worker.Extensions.Http", "3.2.0"),
+            ["Microsoft.Azure.Functions.Worker.Sdk"]                            = ("Microsoft.Azure.Functions.Worker.Sdk", "1.18.1"),
+            ["Microsoft.Azure.Functions.Worker"]                                = ("Microsoft.Azure.Functions.Worker", "1.23.0"),
+            ["Xunit"]                                                           = ("xunit", "2.9.2"),
+            ["xunit"]                                                           = ("xunit", "2.9.2"),
+            ["Microsoft.NET.Test.Sdk"]                                          = ("Microsoft.NET.Test.Sdk", "17.12.0"),
+            ["FluentAssertions"]                                                = ("FluentAssertions", "6.12.2"),
+            ["Moq"]                                                             = ("Moq", "4.20.72"),
+            ["NSubstitute"]                                                     = ("NSubstitute", "5.3.0"),
+        };
+
+    /// <summary>
+    /// Analizza le direttive <c>using</c> nel codice C# e mappa i namespace noti
+    /// ai corrispondenti pacchetti NuGet.
+    /// Usato come fallback deterministico quando l'Architect non ha specificato i NuGet
+    /// nel blocco <c>solution-structure</c>.
+    /// </summary>
+    /// <param name="csharpCode">Contenuto del codice C# (uno o più file)</param>
+    /// <returns>Array di tuple (PackageName, Version) per i pacchetti rilevati</returns>
+    public static (string PackageName, string Version)[] InferNuGetPackagesFromCode(string csharpCode)
+    {
+        if (string.IsNullOrWhiteSpace(csharpCode))
+            return [];
+
+        // Estrae tutti i namespace dalle direttive using
+        var usingPattern = new Regex(@"^\s*using\s+([\w.]+)\s*;", RegexOptions.Multiline);
+        var usedNamespaces = usingPattern.Matches(csharpCode)
+            .Select(m => m.Groups[1].Value)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var result = new Dictionary<string, (string PackageName, string Version)>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var usedNs in usedNamespaces)
+        {
+            // Cerca prima il match esatto, poi per prefisso (più lungo vince)
+            // Ordine: le chiavi più specifiche (più lunghe) hanno precedenza
+            foreach (var (nsPrefix, package) in NamespaceToNuGetMap
+                .OrderByDescending(kv => kv.Key.Length))
+            {
+                if (usedNs.StartsWith(nsPrefix, StringComparison.OrdinalIgnoreCase)
+                    && !result.ContainsKey(package.PackageName))
+                {
+                    result[package.PackageName] = package;
+                    break;
+                }
+            }
+        }
+
+        return [.. result.Values];
     }
 
     /// <summary>

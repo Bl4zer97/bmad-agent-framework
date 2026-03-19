@@ -13,6 +13,9 @@ Il **Developer Agent** genera il codice C# di alta qualità implementando la str
 - Scrivere **ogni file** con il path completo relativo alla root della solution come heading Markdown
 - Produrre codice compilabile e funzionante (nessun placeholder o TODO)
 - NON inventare progetti, layer o namespace non previsti dall'architettura
+- Generare **sempre** il file `Program.cs` per il progetto principale
+- Generare i file di configurazione (`appsettings.json`, `host.json`, ecc.)
+- Garantire la **completezza**: ogni tipo custom usato deve essere definito nel codice generato
 
 ## Input
 
@@ -22,7 +25,7 @@ Il **Developer Agent** genera il codice C# di alta qualità implementando la str
 
 ## Output
 
-Documento Markdown con blocchi `csharp`, uno per file, ognuno preceduto dal suo path completo:
+Documento Markdown con blocchi `csharp` e `json`, ognuno preceduto dal suo path completo:
 
 ```markdown
 ### src/MyApp.Domain/Entities/TodoItem.cs
@@ -31,10 +34,16 @@ namespace MyApp.Domain.Entities;
 public record TodoItem(int Id, string Title, bool IsDone);
 ```
 
-### src/MyApp.Application/Services/TodoService.cs
+### src/MyApp.API/Program.cs
 ```csharp
-namespace MyApp.Application.Services;
-public class TodoService(ITodoRepository repo) { }
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<Program>());
+// ...
+```
+
+### src/MyApp.API/appsettings.json
+```json
+{ "Logging": { "LogLevel": { "Default": "Information" } } }
 ```
 ```
 
@@ -42,6 +51,25 @@ Il path di ogni file:
 - **Inizia con `src/`** per i progetti sorgente
 - **Inizia con `tests/`** per i progetti di test
 - Rispecchia esattamente la struttura definita dall'Architect nel blocco `solution-structure`
+
+## Regole Critiche
+
+### Regola di Completezza
+Ogni tipo custom usato **DEVE** essere definito nel codice generato:
+- Se usi `ITodoRepository`, genera il file `ITodoRepository.cs`
+- Se usi `CreateTodoRequest`, genera il file `CreateTodoRequest.cs`
+- Tipi da pacchetti NuGet (es. `ILogger`, `IMediator`, `ITelegramBotClient`) **non** vanno definiti
+
+### Regola Entry Point
+Il progetto principale (API, Worker, Azure Functions) **DEVE** avere `Program.cs`:
+- Configura il DI container, middleware e routing
+- Registra tutti i servizi di Application e Infrastructure
+- Per Azure Functions: usa `HostBuilder` con `.ConfigureFunctionsWorkerDefaults()`
+
+### Regola File di Configurazione
+- **API/Web**: genera `appsettings.json` e `appsettings.Development.json`
+- **Azure Functions**: genera `host.json` e `local.settings.json`
+- **Worker Service**: genera `appsettings.json`
 
 ## Struttura Seguita
 
@@ -57,12 +85,16 @@ PROJECTS:
   Folders: Entities/, ValueObjects/, Events/, Interfaces/
 - Name: MyApp.Application | SDK: Microsoft.NET.Sdk | References: MyApp.Domain
   Folders: DTOs/, Interfaces/, Services/, Validators/
+  NuGetPackages: MediatR/12.4.0, FluentValidation/11.9.2
 - Name: MyApp.Infrastructure | SDK: Microsoft.NET.Sdk | References: MyApp.Application
   Folders: Data/, Repositories/, Configurations/
+  NuGetPackages: Microsoft.EntityFrameworkCore/8.0.11, Microsoft.EntityFrameworkCore.SqlServer/8.0.11
 - Name: MyApp.API | SDK: Microsoft.NET.Sdk.Web | References: MyApp.Application, MyApp.Infrastructure
   Folders: Controllers/, Middleware/, Extensions/
+  NuGetPackages: Swashbuckle.AspNetCore/6.9.0, Serilog.AspNetCore/8.0.3
 - Name: MyApp.Tests | SDK: Microsoft.NET.Sdk | References: MyApp.Domain, MyApp.Application
   Folders: Unit/, Integration/
+  NuGetPackages: xunit/2.9.2, FluentAssertions/6.12.2, Moq/4.20.72
 ```
 
 La struttura **non è fissa**: l'Architect può definire 3 o 7 progetti, con o senza CQRS, Workers, ecc.
@@ -98,4 +130,3 @@ public class TodoService(ITodoRepository repo, ILogger<TodoService> logger)
 ```
 
 `MaxTokens` alto (16384) perché la generazione dell'intera solution richiede molti token.
-

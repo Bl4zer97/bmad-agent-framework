@@ -92,12 +92,16 @@ public static class ArchitectureDesigner
               Folders: Entities/, ValueObjects/, Events/, Interfaces/
             - Name: {projectName ?? "MyApp"}.Application | SDK: Microsoft.NET.Sdk | References: {projectName ?? "MyApp"}.Domain
               Folders: DTOs/, Interfaces/, Services/, Validators/
+              NuGetPackages: MediatR/12.4.0, FluentValidation/11.9.2, AutoMapper/13.0.1
             - Name: {projectName ?? "MyApp"}.Infrastructure | SDK: Microsoft.NET.Sdk | References: {projectName ?? "MyApp"}.Application
               Folders: Data/, Repositories/, Configurations/, Services/
+              NuGetPackages: Microsoft.EntityFrameworkCore/8.0.11, Microsoft.EntityFrameworkCore.SqlServer/8.0.11, Azure.Identity/1.13.1
             - Name: {projectName ?? "MyApp"}.API | SDK: Microsoft.NET.Sdk.Web | References: {projectName ?? "MyApp"}.Application, {projectName ?? "MyApp"}.Infrastructure
               Folders: Controllers/, Middleware/, Extensions/
+              NuGetPackages: Swashbuckle.AspNetCore/6.9.0, Serilog.AspNetCore/8.0.3
             - Name: {projectName ?? "MyApp"}.Tests | SDK: Microsoft.NET.Sdk | References: {projectName ?? "MyApp"}.Domain, {projectName ?? "MyApp"}.Application
               Folders: Unit/, Integration/
+              NuGetPackages: xunit/2.9.2, FluentAssertions/6.12.2, Moq/4.20.72, Microsoft.NET.Test.Sdk/17.12.0
             ```
 
             IMPORTANTE per la struttura:
@@ -105,6 +109,9 @@ public static class ArchitectureDesigner
             - Progetti `src/`: usano SDK `Microsoft.NET.Sdk` (librerie) o `Microsoft.NET.Sdk.Web` (API/web)
             - Progetti di test: vanno sotto `tests/` con SDK `Microsoft.NET.Sdk`
             - I `References` sono i nomi esatti dei progetti separati da virgola, oppure `(nessuno)`
+            - La riga `NuGetPackages:` elenca i pacchetti NuGet nel formato `NomePacchetto/Versione` separati da virgola
+            - `NuGetPackages:` va sulla riga dopo `Folders:` (o dopo la riga progetto se non ci sono Folders)
+            - Specifica i NuGet effettivamente usati nel codice di quel progetto (non tutti i pacchetti in ogni progetto)
             - L'esempio sopra è solo un template: adattalo ai requisiti effettivi del progetto
 
             ## 10. ADR (Architecture Decision Records)
