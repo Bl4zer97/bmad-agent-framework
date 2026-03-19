@@ -12,16 +12,19 @@ namespace BmadAgentFramework.Agents.SolutionExporter;
 ///
 /// Responsabilità:
 /// - Leggere l'artefatto "code" prodotto dal DeveloperAgent (Markdown con blocchi C#)
-/// - Estrarre i blocchi ```csharp / ```cs dal Markdown
-/// - Scrivere su disco una .NET solution strutturata con .sln, .csproj e file .cs separati
+/// - Leggere l'artefatto "architecture" prodotto dall'ArchitectAgent (struttura multi-progetto)
+/// - Estrarre i blocchi ```csharp dal Markdown rispettando i path definiti dal Developer
+/// - Parsare il blocco `solution-structure` dall'architettura per la struttura multi-progetto
+/// - Scrivere su disco una .NET solution strutturata con .sln, .csproj multipli e file .cs organizzati
 /// - Salvare un artefatto "solution" con il percorso della cartella generata
 ///
 /// Caratteristiche:
 /// - Agente DETERMINISTICO: zero chiamate Azure OpenAI → zero costi aggiuntivi
+/// - L'Architect è SENIOR sulla struttura: il SolutionExporter ESEGUE, non decide
 /// - Si aggancia alla fase QualityAssurance (attivata dopo il DeveloperAgent)
 ///
 /// Output prodotto: artefatto "solution" con il path della cartella su disco
-/// Input necessari: artefatto "code" nel contesto
+/// Input necessari: artefatto "code" nel contesto; artefatto "architecture" opzionale (migliora la struttura)
 /// </summary>
 public class SolutionExporterAgent : IAgent
 {
@@ -69,15 +72,33 @@ public class SolutionExporterAgent : IAgent
     ///
     /// Flusso:
     /// 1. Legge l'artefatto "code" dal contesto
-    /// 2. Estrae i blocchi ```csharp dal Markdown tramite SolutionExporterService
-    /// 3. Scrive la solution su disco (cartella output/{ProjectName}-solution/)
-    /// 4. Salva un artefatto "solution" con il percorso generato
-    /// 5. Restituisce un AgentMessage con il summary dell'operazione
+    /// 2. Legge l'artefatto "architecture" dal contesto (opzionale, per la struttura multi-progetto)
+    /// 3. Estrae i blocchi ```csharp dal Markdown tramite SolutionExporterService
+    /// 4. Scrive la solution su disco (cartella output/{ProjectName}-solution/) rispettando l'architettura
+    /// 5. Salva un artefatto "solution" con il percorso generato
+    /// 6. Restituisce un AgentMessage con il summary dell'operazione
     /// </summary>
     public async Task<AgentMessage> ProcessAsync(AgentContext context, CancellationToken ct = default)
     {
         var codeArtifact = context.GetArtifact("code")
             ?? throw new InvalidOperationException("Manca artefatto 'code'");
+
+        // Legge l'artefatto "architecture" (opzionale) per la struttura multi-progetto
+        var architectureArtifact = context.GetArtifact("architecture");
+        var architectureContent = architectureArtifact?.Content;
+
+        if (architectureContent != null)
+        {
+            _logger.LogInformation(
+                "SolutionExporterAgent: artefatto 'architecture' trovato, " +
+                "verrà usato per la struttura multi-progetto");
+        }
+        else
+        {
+            _logger.LogWarning(
+                "SolutionExporterAgent: artefatto 'architecture' non trovato. " +
+                "La struttura verrà inferita dai path dei file generati.");
+        }
 
         // Estrae i blocchi C# dal Markdown
         var codeBlocks = SolutionExporterService.ExtractCodeBlocks(codeArtifact.Content);
@@ -95,6 +116,12 @@ public class SolutionExporterAgent : IAgent
             "SolutionExporterAgent: estratti {Count} file C# dall'artefatto code",
             codeBlocks.Count);
 
+        // Log dei file estratti per visibilità
+        foreach (var (fileName, _) in codeBlocks)
+        {
+            _logger.LogDebug("SolutionExporterAgent: file estratto → {FileName}", fileName);
+        }
+
         // Determina il percorso di output (stesso CWD usato dal Program.cs esistente)
         var outputBasePath = Path.Combine(Directory.GetCurrentDirectory(), "output");
         Directory.CreateDirectory(outputBasePath);
@@ -103,11 +130,12 @@ public class SolutionExporterAgent : IAgent
             ? "BmadProject"
             : context.ProjectName;
 
-        // Scrive la solution su disco
+        // Scrive la solution su disco usando anche l'architettura per la struttura multi-progetto
         var solutionPath = SolutionExporterService.WriteSolutionToDisk(
             outputBasePath,
             projectName,
-            codeBlocks);
+            codeBlocks,
+            architectureContent);
 
         _logger.LogInformation(
             "SolutionExporterAgent: solution scritta in {SolutionPath}",
