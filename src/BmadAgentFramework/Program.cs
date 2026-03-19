@@ -4,6 +4,7 @@ using BmadAgentFramework.Agents.Developer;
 using BmadAgentFramework.Agents.DevOps;
 using BmadAgentFramework.Agents.Orchestrator;
 using BmadAgentFramework.Agents.QA;
+using BmadAgentFramework.Agents.SolutionExporter;
 using BmadAgentFramework.Core.Abstractions;
 using BmadAgentFramework.Core.Configuration;
 using BmadAgentFramework.Core.Models;
@@ -76,6 +77,9 @@ try
             // DevOps: crea pipeline e infrastruttura
             services.AddTransient<DevOpsAgent>();
 
+            // SolutionExporter: esporta il codice C# in una .NET solution su disco (zero costi AI)
+            services.AddTransient<SolutionExporterAgent>();
+
             // ================================================================
             // ORCHESTRATORE
             // ================================================================
@@ -97,6 +101,7 @@ try
                         ("DeveloperAgent",  () => provider.GetRequiredService<DeveloperAgent>()),
                         ("QAAgent",         () => provider.GetRequiredService<QAAgent>()),
                         ("DevOpsAgent",     () => provider.GetRequiredService<DevOpsAgent>()),
+                        ("SolutionExporterAgent", () => provider.GetRequiredService<SolutionExporterAgent>()),
                    };
 
                 foreach (var (name, factory) in allAgents)
