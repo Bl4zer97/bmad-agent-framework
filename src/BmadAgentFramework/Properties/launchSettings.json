@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "BmadAgentFramework": {
+      "commandName": "Project",
+      "commandLineArgs": "dotnet run --project src/BmadAgentFramework \"Crea una .NET 8 solution con un Azure Function HTTP trigger che funziona da webhook per Telegram.\n\nLa function riceve un messaggio da un bot Telegram, lo passa a un motore centrale che lo invia \nad un agente su Azure AI Foundry e restituisce la risposta dell'agente al chiamante Telegram.\n\nIl motore che gestisce la comunicazione con Azure AI Foundry deve essere separato dalla function \nTelegram e progettato in modo generico, così che in futuro altre webhook o altri canali \n(come Slack, Teams o una semplice chiamata HTTP) possano usare lo stesso motore senza duplicare \nla logica.\""
+    }
+  }
+}
