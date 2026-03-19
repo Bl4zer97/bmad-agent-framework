@@ -3,8 +3,10 @@ using BmadAgentFramework.Core.Models;
 using BmadAgentFramework.Core.Services;
 using BmadAgentFramework.Agents.Analyst;
 using BmadAgentFramework.Agents.Orchestrator;
+using BmadAgentFramework.Agents.SolutionBuilder;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
 
@@ -101,6 +103,10 @@ public class AgentTests
 
         state.AdvanceToNextPhase();
         state.CurrentPhase.Should().Be(WorkflowPhase.Development);
+
+        state.AdvanceToNextPhase();
+        state.CurrentPhase.Should().Be(WorkflowPhase.SolutionBuilding,
+            "dopo lo sviluppo il SolutionBuilder deve materializzare il codice");
 
         state.AdvanceToNextPhase();
         state.CurrentPhase.Should().Be(WorkflowPhase.QualityAssurance);
@@ -350,5 +356,303 @@ public class AgentTests
         export.Should().Contain("architecture.md");
         export.Should().Contain("# PRD");
         export.Should().Contain("# Arch");
+    }
+
+    // ========================================================================
+    // TEST PROJECTARTIFACT - SOLUTION
+    // ========================================================================
+
+    [Fact]
+    public void ProjectArtifact_CreateSolution_ShouldSetCorrectProperties()
+    {
+        // Arrange
+        const string summary = "# Soluzione generata";
+        const string outputPath = "/tmp/output/MyApp";
+        const string producer = "SolutionBuilderAgent";
+
+        // Act
+        var artifact = ProjectArtifact.CreateSolution(summary, outputPath, producer);
+
+        // Assert
+        artifact.Name.Should().Be("solution-summary.md");
+        artifact.ArtifactType.Should().Be("solution");
+        artifact.ProducedBy.Should().Be(producer);
+        artifact.Content.Should().Be(summary);
+        artifact.ContentFormat.Should().Be("markdown");
+        artifact.Metadata["outputPath"].Should().Be(outputPath);
+        artifact.ArtifactId.Should().NotBeNullOrEmpty();
+    }
+
+    // ========================================================================
+    // TEST SOLUTIONWRITER
+    // ========================================================================
+
+    [Fact]
+    public void SolutionWriter_ParseCodeBlocks_ShouldExtractFileWithHeadingPath()
+    {
+        // Arrange
+        const string markdown = """
+            ### src/Domain/Entities/TodoItem.cs
+            ```csharp
+            public class TodoItem { }
+            ```
+            """;
+
+        // Act
+        var files = SolutionWriter.ParseCodeBlocks(markdown);
+
+        // Assert
+        files.Should().HaveCount(1);
+        files[0].FilePath.Should().Be("src/Domain/Entities/TodoItem.cs");
+        files[0].Content.Should().Contain("public class TodoItem");
+    }
+
+    [Fact]
+    public void SolutionWriter_ParseCodeBlocks_ShouldExtractMultipleFiles()
+    {
+        // Arrange
+        const string markdown = """
+            ### src/Domain/Entities/TodoItem.cs
+            ```csharp
+            public class TodoItem { }
+            ```
+
+            ### src/Application/Services/TodoService.cs
+            ```csharp
+            public class TodoService { }
+            ```
+            """;
+
+        // Act
+        var files = SolutionWriter.ParseCodeBlocks(markdown);
+
+        // Assert
+        files.Should().HaveCount(2);
+        files[0].FilePath.Should().Be("src/Domain/Entities/TodoItem.cs");
+        files[1].FilePath.Should().Be("src/Application/Services/TodoService.cs");
+    }
+
+    [Fact]
+    public void SolutionWriter_ParseCodeBlocks_ShouldDerivePathFromClassWhenNoHeading()
+    {
+        // Arrange
+        const string markdown = """
+            ```csharp
+            public class MyController { }
+            ```
+            """;
+
+        // Act
+        var files = SolutionWriter.ParseCodeBlocks(markdown);
+
+        // Assert
+        files.Should().HaveCount(1);
+        files[0].FilePath.Should().Be("MyController.cs",
+            "il path deve essere derivato dal nome della classe quando non c'è un'intestazione");
+    }
+
+    [Fact]
+    public void SolutionWriter_ParseCodeBlocks_ShouldSupportBacktickHeading()
+    {
+        // Arrange - formato con backtick: ### `src/MyFile.cs`
+        const string markdown = """
+            ### `src/MyFile.cs`
+            ```csharp
+            public class MyFile { }
+            ```
+            """;
+
+        // Act
+        var files = SolutionWriter.ParseCodeBlocks(markdown);
+
+        // Assert
+        files.Should().HaveCount(1);
+        files[0].FilePath.Should().Be("src/MyFile.cs");
+    }
+
+    [Fact]
+    public void SolutionWriter_ParseCodeBlocks_ShouldReturnEmptyForMarkdownWithNoCodeBlocks()
+    {
+        // Arrange
+        const string markdown = "# Solo testo\nNessun blocco di codice qui.";
+
+        // Act
+        var files = SolutionWriter.ParseCodeBlocks(markdown);
+
+        // Assert
+        files.Should().BeEmpty("nessun blocco ```csharp presente");
+    }
+
+    [Fact]
+    public async Task SolutionWriter_WriteFilesAsync_ShouldCreateFilesOnDisk()
+    {
+        // Arrange
+        var tempDir = Path.Combine(Path.GetTempPath(), $"bmad-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        var files = new List<(string FilePath, string Content)>
+        {
+            ("src/Domain/Entities/TodoItem.cs", "public class TodoItem { }"),
+            ("src/Application/Services/TodoService.cs", "public class TodoService { }")
+        };
+
+        try
+        {
+            // Act
+            await SolutionWriter.WriteFilesAsync(tempDir, files);
+
+            // Assert
+            File.Exists(Path.Combine(tempDir, "src", "Domain", "Entities", "TodoItem.cs"))
+                .Should().BeTrue("il file deve essere creato sul disco");
+            File.Exists(Path.Combine(tempDir, "src", "Application", "Services", "TodoService.cs"))
+                .Should().BeTrue("anche il secondo file deve essere creato");
+
+            var content = await File.ReadAllTextAsync(
+                Path.Combine(tempDir, "src", "Domain", "Entities", "TodoItem.cs"));
+            content.Should().Be("public class TodoItem { }");
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void SolutionWriter_GenerateProjectFile_ShouldContainProjectName()
+    {
+        // Act
+        var csproj = SolutionWriter.GenerateProjectFile("MyTodoApp");
+
+        // Assert
+        csproj.Should().Contain("MyTodoApp");
+        csproj.Should().Contain("net8.0");
+        csproj.Should().Contain("Microsoft.NET.Sdk.Web");
+    }
+
+    // ========================================================================
+    // TEST SOLUTIONBUILDERAGENT
+    // ========================================================================
+
+    [Fact]
+    public async Task SolutionBuilderAgent_CanHandle_ShouldReturnTrue_WhenPhaseIsCorrectAndCodeArtifactExists()
+    {
+        // Arrange
+        var agent = CreateSolutionBuilderAgent();
+        var context = new AgentContext
+        {
+            CurrentPhase = WorkflowPhase.SolutionBuilding
+        };
+        context.SaveArtifact(ProjectArtifact.CreateSourceCode(
+            "### MyClass.cs\n```csharp\npublic class MyClass { }\n```",
+            "MyClass.cs",
+            "DeveloperAgent"));
+
+        // Act
+        var canHandle = await agent.CanHandleAsync(context);
+
+        // Assert
+        canHandle.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SolutionBuilderAgent_CanHandle_ShouldReturnFalse_WhenWrongPhase()
+    {
+        // Arrange
+        var agent = CreateSolutionBuilderAgent();
+        var context = new AgentContext
+        {
+            CurrentPhase = WorkflowPhase.Development
+        };
+
+        // Act
+        var canHandle = await agent.CanHandleAsync(context);
+
+        // Assert
+        canHandle.Should().BeFalse("la fase corrente non è SolutionBuilding");
+    }
+
+    [Fact]
+    public async Task SolutionBuilderAgent_CanHandle_ShouldReturnFalse_WhenNoCodeArtifact()
+    {
+        // Arrange
+        var agent = CreateSolutionBuilderAgent();
+        var context = new AgentContext
+        {
+            CurrentPhase = WorkflowPhase.SolutionBuilding
+            // nessun artefatto "code"
+        };
+
+        // Act
+        var canHandle = await agent.CanHandleAsync(context);
+
+        // Assert
+        canHandle.Should().BeFalse("manca l'artefatto 'code'");
+    }
+
+    [Fact]
+    public async Task SolutionBuilderAgent_ProcessAsync_ShouldWriteFilesToDiskAndSaveArtifact()
+    {
+        // Arrange
+        var tempDir = Path.Combine(Path.GetTempPath(), $"bmad-agent-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            var agent = CreateSolutionBuilderAgent(tempDir);
+
+            var context = new AgentContext
+            {
+                CurrentPhase = WorkflowPhase.SolutionBuilding,
+                ProjectName = "TodoApp",
+                Requirements = "Crea una Todo REST API"
+            };
+            context.SaveArtifact(ProjectArtifact.CreateSourceCode(
+                "### src/Domain/TodoItem.cs\n```csharp\npublic class TodoItem { }\n```",
+                "TodoApp.cs",
+                "DeveloperAgent"));
+
+            // Act
+            var message = await agent.ProcessAsync(context);
+
+            // Assert
+            message.IsError.Should().BeFalse();
+            message.AgentName.Should().Be("SolutionBuilderAgent");
+            message.Phase.Should().Be(WorkflowPhase.SolutionBuilding);
+
+            // Verifica che i file siano stati scritti su disco
+            var outputProjectDir = Path.Combine(tempDir, "TodoApp");
+            Directory.Exists(outputProjectDir).Should().BeTrue("la cartella del progetto deve esistere");
+
+            File.Exists(Path.Combine(outputProjectDir, "src", "Domain", "TodoItem.cs"))
+                .Should().BeTrue("il file C# deve essere scritto su disco");
+            File.Exists(Path.Combine(outputProjectDir, "TodoApp.csproj"))
+                .Should().BeTrue("deve essere generato il file .csproj");
+            File.Exists(Path.Combine(outputProjectDir, "README.md"))
+                .Should().BeTrue("deve essere generato il README.md");
+
+            // Verifica che l'artefatto "solution" sia stato salvato nel contesto
+            context.GetArtifact("solution").Should().NotBeNull();
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Crea una istanza di <see cref="SolutionBuilderAgent"/> con dipendenze mock,
+    /// usando una directory di output temporanea.
+    /// </summary>
+    private static SolutionBuilderAgent CreateSolutionBuilderAgent(string? outputBasePath = null)
+    {
+        var logger = Mock.Of<ILogger<SolutionBuilderAgent>>();
+        var artifactStore = new ArtifactStore(Mock.Of<ILogger<ArtifactStore>>());
+        var memoryService = new MemoryService(Mock.Of<ILogger<MemoryService>>());
+        var frameworkOptions = new BmadAgentFramework.Core.Configuration.FrameworkOptions
+        {
+            OutputPath = outputBasePath ?? Path.Combine(Path.GetTempPath(), $"bmad-default-{Guid.NewGuid():N}")
+        };
+        var options = Options.Create(frameworkOptions);
+
+        return new SolutionBuilderAgent(artifactStore, memoryService, options, logger);
     }
 }

@@ -12,7 +12,8 @@ public enum AgentRole
     Developer,
     QA,
     DevOps,
-    Orchestrator
+    Orchestrator,
+    SolutionBuilder
 }
 
 /// <summary>

@@ -51,6 +51,12 @@ public class FrameworkOptions
     /// </summary>
     public string ExecutionMode { get; set; } = "InMemory";
 
+    /// <summary>
+    /// Percorso base della cartella di output per i file generati dal SolutionBuilderAgent.
+    /// Relativo alla directory di lavoro dell'applicazione. Default: "output"
+    /// </summary>
+    public string OutputPath { get; set; } = "output";
+
     /// <summary>Configurazioni specifiche per ogni agente</summary>
     public Dictionary<string, AgentConfiguration> Agents { get; set; } = new();
 

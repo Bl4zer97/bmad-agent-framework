@@ -55,7 +55,8 @@ public class WorkflowState
         {
             WorkflowPhase.Analysis => WorkflowPhase.Architecture,
             WorkflowPhase.Architecture => WorkflowPhase.Development,
-            WorkflowPhase.Development => WorkflowPhase.QualityAssurance,
+            WorkflowPhase.Development => WorkflowPhase.SolutionBuilding,
+            WorkflowPhase.SolutionBuilding => WorkflowPhase.QualityAssurance,
             WorkflowPhase.QualityAssurance => WorkflowPhase.DevOps,
             WorkflowPhase.DevOps => WorkflowPhase.Completed,
             _ => CurrentPhase

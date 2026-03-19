@@ -24,7 +24,10 @@ public enum ArtifactType
     Documentation,
 
     /// <summary>Configurazione del progetto</summary>
-    Configuration
+    Configuration,
+
+    /// <summary>Soluzione materializzata su disco (prodotta dal SolutionBuilderAgent)</summary>
+    Solution
 }
 
 /// <summary>
@@ -104,5 +107,23 @@ public class ProjectArtifact
             ProducedBy = producedBy,
             Content = content,
             ContentFormat = "csharp"
+        };
+
+    /// <summary>
+    /// Crea un artefatto di tipo Solution dal SolutionBuilderAgent.
+    /// Contiene il riepilogo dei file materializzati su disco.
+    /// </summary>
+    public static ProjectArtifact CreateSolution(string summary, string outputPath, string producedBy) =>
+        new()
+        {
+            Name = "solution-summary.md",
+            ArtifactType = "solution",
+            ProducedBy = producedBy,
+            Content = summary,
+            ContentFormat = "markdown",
+            Metadata = new Dictionary<string, string>
+            {
+                ["outputPath"] = outputPath
+            }
         };
 }
