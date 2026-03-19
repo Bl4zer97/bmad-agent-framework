@@ -1,0 +1,41 @@
+## .NET build output
+bin/
+obj/
+*.user
+*.suo
+
+## Output della demo BMAD
+output/
+
+## Configurazione locale con segreti (NON committare API keys!)
+**/appsettings.local.json
+**/appsettings.Development.json
+
+## Visual Studio
+.vs/
+*.vsidx
+
+## Rider
+.idea/
+
+## OS
+.DS_Store
+Thumbs.db
+
+## NuGet
+*.nupkg
+*.snupkg
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Test results
+TestResults/
+test-results/
+coverage.xml
+*.trx
+
+## Logs
+*.log
+logs/

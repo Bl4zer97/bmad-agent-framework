@@ -1,0 +1,18 @@
+{
+  "description": "Esempio di input per il framework BMAD - Generazione Todo App",
+  "version": "1.0",
+  "request": "Crea una REST API completa in C# .NET 8 per gestire una lista di task (Todo App). L'API deve supportare operazioni CRUD complete per i task, filtraggio per stato (completato/non completato) e per priorità, assegnazione di task a utenti specifici, autenticazione tramite Azure AD (Entra ID), persistenza su Azure SQL Database con Entity Framework Core, deployment su Azure App Service. L'applicazione deve essere scalabile e seguire i principi di Clean Architecture.",
+  "metadata": {
+    "techStack": "C# .NET 8, Azure, Entity Framework Core",
+    "appType": "REST API",
+    "deployTarget": "Azure App Service",
+    "priority": "high"
+  },
+  "expectedOutputs": [
+    "requirements.md",
+    "architecture.md",
+    "TodoApp.cs",
+    "TodoAppTests.cs",
+    "pipeline-and-infrastructure.md"
+  ]
+}
