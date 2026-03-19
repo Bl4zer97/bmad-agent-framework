@@ -4,6 +4,7 @@ using BmadAgentFramework.Agents.Developer;
 using BmadAgentFramework.Agents.DevOps;
 using BmadAgentFramework.Agents.Orchestrator;
 using BmadAgentFramework.Agents.QA;
+using BmadAgentFramework.Agents.SolutionBuilder;
 using BmadAgentFramework.Core.Abstractions;
 using BmadAgentFramework.Core.Configuration;
 using BmadAgentFramework.Core.Models;
@@ -70,6 +71,9 @@ try
             // Developer: scrive il codice
             services.AddTransient<DeveloperAgent>();
 
+            // SolutionBuilder: materializza il codice generato in file effettivi nella cartella output
+            services.AddTransient<SolutionBuilderAgent>();
+
             // QA: genera i test
             services.AddTransient<QAAgent>();
 
@@ -92,11 +96,12 @@ try
 
                 var allAgents = new (string Name, Func<IAgent> Factory)[]
                    {
-                        ("AnalystAgent",    () => provider.GetRequiredService<AnalystAgent>()),
-                        ("ArchitectAgent",  () => provider.GetRequiredService<ArchitectAgent>()),
-                        ("DeveloperAgent",  () => provider.GetRequiredService<DeveloperAgent>()),
-                        ("QAAgent",         () => provider.GetRequiredService<QAAgent>()),
-                        ("DevOpsAgent",     () => provider.GetRequiredService<DevOpsAgent>()),
+                        ("AnalystAgent",         () => provider.GetRequiredService<AnalystAgent>()),
+                        ("ArchitectAgent",       () => provider.GetRequiredService<ArchitectAgent>()),
+                        ("DeveloperAgent",       () => provider.GetRequiredService<DeveloperAgent>()),
+                        ("SolutionBuilderAgent", () => provider.GetRequiredService<SolutionBuilderAgent>()),
+                        ("QAAgent",              () => provider.GetRequiredService<QAAgent>()),
+                        ("DevOpsAgent",          () => provider.GetRequiredService<DevOpsAgent>()),
                    };
 
                 foreach (var (name, factory) in allAgents)

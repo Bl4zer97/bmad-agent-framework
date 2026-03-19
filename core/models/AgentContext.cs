@@ -28,7 +28,10 @@ public enum WorkflowPhase
     PendingApproval = 6,
 
     /// <summary>Workflow fallito con errori</summary>
-    Failed = 7
+    Failed = 7,
+
+    /// <summary>Fase di materializzazione della soluzione: crea i file effettivi nella cartella output</summary>
+    SolutionBuilding = 8
 }
 
 /// <summary>
