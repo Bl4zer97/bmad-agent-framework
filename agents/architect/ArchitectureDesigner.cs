@@ -82,7 +82,30 @@ public static class ArchitectureDesigner
             - Auto-scaling strategy
 
             ## 9. Struttura del Progetto .NET
-            Struttura di cartelle/namespace raccomandata
+            Definisci la struttura ESATTA della solution .NET in un blocco `solution-structure` parsabile.
+            Il blocco è la FONTE DI VERITÀ per il Developer Agent e il SolutionExporter Agent.
+
+            ```solution-structure
+            SOLUTION: {projectName ?? "MyApp"}
+            PROJECTS:
+            - Name: {projectName ?? "MyApp"}.Domain | SDK: Microsoft.NET.Sdk | References: (nessuno)
+              Folders: Entities/, ValueObjects/, Events/, Interfaces/
+            - Name: {projectName ?? "MyApp"}.Application | SDK: Microsoft.NET.Sdk | References: {projectName ?? "MyApp"}.Domain
+              Folders: DTOs/, Interfaces/, Services/, Validators/
+            - Name: {projectName ?? "MyApp"}.Infrastructure | SDK: Microsoft.NET.Sdk | References: {projectName ?? "MyApp"}.Application
+              Folders: Data/, Repositories/, Configurations/, Services/
+            - Name: {projectName ?? "MyApp"}.API | SDK: Microsoft.NET.Sdk.Web | References: {projectName ?? "MyApp"}.Application, {projectName ?? "MyApp"}.Infrastructure
+              Folders: Controllers/, Middleware/, Extensions/
+            - Name: {projectName ?? "MyApp"}.Tests | SDK: Microsoft.NET.Sdk | References: {projectName ?? "MyApp"}.Domain, {projectName ?? "MyApp"}.Application
+              Folders: Unit/, Integration/
+            ```
+
+            IMPORTANTE per la struttura:
+            - La struttura NON è fissa: decidila in base ai requisiti (3 o 7 progetti, con/senza CQRS, Workers, ecc.)
+            - Progetti `src/`: usano SDK `Microsoft.NET.Sdk` (librerie) o `Microsoft.NET.Sdk.Web` (API/web)
+            - Progetti di test: vanno sotto `tests/` con SDK `Microsoft.NET.Sdk`
+            - I `References` sono i nomi esatti dei progetti separati da virgola, oppure `(nessuno)`
+            - L'esempio sopra è solo un template: adattalo ai requisiti effettivi del progetto
 
             ## 10. ADR (Architecture Decision Records)
             Principali decisioni tecniche con motivazioni

@@ -26,6 +26,13 @@ public class DeveloperAgent : IAgent
         Sei l'Agente Developer del framework BMAD per soluzioni C# .NET 8 su Azure.
         Scrivi codice C# 12 di alta qualità, moderno e ben strutturato.
 
+        REGOLA FONDAMENTALE — STRUTTURA DEL PROGETTO:
+        - Segui ESATTAMENTE la struttura definita dall'Architect Agent nel documento di architettura (sezione "Struttura del Progetto .NET")
+        - NON inventare progetti, layer o namespace non previsti dall'architettura
+        - Ogni file DEVE avere il path completo relativo alla root della solution come heading Markdown
+        - Il path DEVE iniziare con `src/` per i progetti sorgente, `tests/` per i test
+        - L'Architect è SENIOR sulla struttura: le sue decisioni sono legge
+
         Principi di codifica che segui:
         - C# 12 features: record types, primary constructors, collection expressions
         - Async/await ovunque per operazioni I/O
@@ -76,7 +83,7 @@ public class DeveloperAgent : IAgent
             {
                 AgentName = Name,
                 Temperature = 0.2f,   // Bassa temperatura per codice più deterministico
-                MaxTokens = 8192      // Codice può essere lungo
+                MaxTokens = 16384     // Codice può essere lungo: generazione intera solution
             };
     }
 

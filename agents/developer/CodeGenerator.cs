@@ -30,27 +30,13 @@ public static class CodeGenerator
             {architectureContent}
 
             ## Istruzioni per il Codice
-            Genera il codice per una {appType} con questa struttura:
+            IMPORTANTE: Segui ESATTAMENTE la struttura definita nella sezione "Struttura del Progetto .NET"
+            del documento di architettura qui sopra. NON inventare progetti o layer non previsti.
 
-            1. **Domain Layer**
-               - Entità con record types C# 12
-               - Value Objects se appropriati
-               - Domain events
-
-            2. **Application Layer**
-               - Interfacce dei repository
-               - Use cases / Command handlers
-               - DTOs (Data Transfer Objects)
-
-            3. **Infrastructure Layer**
-               - Implementazione repository con EF Core
-               - DbContext configurato
-               - Configurazioni Entity Framework
-
-            4. **API Layer** (se REST API)
-               - Controller o Minimal API endpoints
-               - Middleware per error handling
-               - Program.cs con DI setup completo
+            Per ogni file:
+            - Una sola classe, interfaccia o record per file
+            - Codice COMPLETO e compilabile (niente placeholder, TODO o "// ... resto del codice")
+            - Namespace che rispecchia il percorso del file (es. `src/MyApp.Domain/Entities/` → `MyApp.Domain.Entities`)
 
             ## Standard di Codice
             - Usa C# 12 syntax (record types, primary constructors, collection expressions)
@@ -60,15 +46,21 @@ public static class CodeGenerator
             - Dependency injection su tutto
             - Logging con ILogger<T>
 
-            ## Formato Output
-            Produci il codice in blocchi ```csharp separati per ogni file, con il path completo come titolo.
-            Esempio:
-            ### src/Domain/Entities/TodoItem.cs
+            ## Formato Output OBBLIGATORIO
+            Ogni file DEVE essere preceduto da un heading Markdown con il path completo relativo alla root della solution.
+            Il path DEVE iniziare con `src/` per i sorgenti o `tests/` per i test.
+
+            Formato ESATTO da rispettare per ogni file:
+
+            ### src/NomeProgetto.Layer/Cartella/NomeClasse.cs
             ```csharp
-            // codice...
+            namespace NomeProgetto.Layer.Cartella;
+            // codice completo della classe...
             ```
 
-            Inizia sempre con il domain layer e progredisci verso l'esterno.
+            NON usare mai un heading diverso da `### path/to/File.cs` prima del blocco csharp.
+            Genera TUTTI i file necessari seguendo la struttura dell'Architect.
+            Inizia dal layer più interno (Domain) e procedi verso l'esterno.
             """;
     }
 }
