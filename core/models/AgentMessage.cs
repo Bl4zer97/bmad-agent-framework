@@ -9,6 +9,7 @@ public enum AgentRole
     User,
     Analyst,
     Architect,
+    TechResearch,
     Developer,
     QA,
     DevOps,

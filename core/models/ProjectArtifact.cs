@@ -105,4 +105,17 @@ public class ProjectArtifact
             Content = content,
             ContentFormat = "csharp"
         };
+
+    /// <summary>
+    /// Crea un artefatto di riferimento tecnico dal TechResearchAgent
+    /// </summary>
+    public static ProjectArtifact CreateTechReference(string content, string producedBy) =>
+        new()
+        {
+            Name = "tech-reference.md",
+            ArtifactType = "tech-reference",
+            ProducedBy = producedBy,
+            Content = content,
+            ContentFormat = "markdown"
+        };
 }

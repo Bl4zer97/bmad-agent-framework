@@ -52,7 +52,7 @@ public class OrchestratorTests
 
         // Verifica che gli agenti siano stati eseguiti nell'ordine corretto
         executionOrder.Should().ContainInOrder(
-            "Analysis", "Architecture", "Development", "QualityAssurance", "DevOps");
+            "Analysis", "Architecture", "TechResearch", "Development", "QualityAssurance", "DevOps");
     }
 
     [Fact]
@@ -154,6 +154,8 @@ public class OrchestratorTests
             "la fase Analysis è già completata");
         executionOrder.Should().NotContain("Architecture",
             "la fase Architecture è già completata");
+        executionOrder.Should().NotContain("TechResearch",
+            "la fase TechResearch è già completata");
         executionOrder.Should().Contain("Development");
     }
 
@@ -201,6 +203,7 @@ public class OrchestratorTests
         {
             (Phase: WorkflowPhase.Analysis, Role: AgentRole.Analyst, ArtifactType: "requirements"),
             (Phase: WorkflowPhase.Architecture, Role: AgentRole.Architect, ArtifactType: "architecture"),
+            (Phase: WorkflowPhase.TechResearch, Role: AgentRole.TechResearch, ArtifactType: "tech-reference"),
             (Phase: WorkflowPhase.Development, Role: AgentRole.Developer, ArtifactType: "code"),
             (Phase: WorkflowPhase.QualityAssurance, Role: AgentRole.QA, ArtifactType: "tests"),
             (Phase: WorkflowPhase.DevOps, Role: AgentRole.DevOps, ArtifactType: "pipeline")
