@@ -6,6 +6,9 @@ Il **Developer Agent** genera il codice C# di alta qualità implementando la str
 
 > **Principio guida**: L'Architect è SENIOR sulla struttura. Il Developer **SEGUE** le decisioni dell'Architect, non le reinventa.
 
+> **Istruzioni operative dettagliate**: vedere [`developer-agent-instructions.md`](developer-agent-instructions.md) per le regole complete di generazione del codice, checklist di validazione e snippet API corretti.
+> **Reference API**: vedere [`api-reference-hints.md`](api-reference-hints.md) per gli snippet corretti dei pacchetti più usati (Azure Functions, Telegram.Bot v22.x, Azure.AI.Agents.Persistent, ecc.).
+
 ## Responsabilità
 
 - Leggere la struttura del progetto dalla sezione "Struttura del Progetto .NET" del documento dell'Architect
