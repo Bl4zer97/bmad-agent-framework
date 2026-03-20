@@ -29,6 +29,7 @@ public class WorkflowEngine
     {
         [WorkflowPhase.Analysis] = AgentRole.Analyst,
         [WorkflowPhase.Architecture] = AgentRole.Architect,
+        [WorkflowPhase.TechResearch] = AgentRole.TechResearch,
         [WorkflowPhase.Development] = AgentRole.Developer,
         [WorkflowPhase.QualityAssurance] = AgentRole.QA,
         [WorkflowPhase.DevOps] = AgentRole.DevOps
@@ -63,6 +64,7 @@ public class WorkflowEngine
         {
             WorkflowPhase.Analysis,
             WorkflowPhase.Architecture,
+            WorkflowPhase.TechResearch,
             WorkflowPhase.Development,
             WorkflowPhase.QualityAssurance,
             WorkflowPhase.DevOps

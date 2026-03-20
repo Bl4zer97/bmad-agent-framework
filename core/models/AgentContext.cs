@@ -12,23 +12,26 @@ public enum WorkflowPhase
     /// <summary>Fase di progettazione architetturale</summary>
     Architecture = 1,
 
+    /// <summary>Fase di ricerca tecnica e verifica API/NuGet (tra Architect e Developer)</summary>
+    TechResearch = 2,
+
     /// <summary>Fase di sviluppo del codice</summary>
-    Development = 2,
+    Development = 3,
 
     /// <summary>Fase di testing e quality assurance</summary>
-    QualityAssurance = 3,
+    QualityAssurance = 4,
 
     /// <summary>Fase di deployment e infrastruttura</summary>
-    DevOps = 4,
+    DevOps = 5,
 
     /// <summary>Workflow completato con successo</summary>
-    Completed = 5,
+    Completed = 10,
 
     /// <summary>Workflow in attesa di approvazione umana (human-in-the-loop)</summary>
     PendingApproval = 6,
 
     /// <summary>Workflow fallito con errori</summary>
-    Failed = 7
+    Failed = -1
 }
 
 /// <summary>

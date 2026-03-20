@@ -54,7 +54,8 @@ public class WorkflowState
         CurrentPhase = CurrentPhase switch
         {
             WorkflowPhase.Analysis => WorkflowPhase.Architecture,
-            WorkflowPhase.Architecture => WorkflowPhase.Development,
+            WorkflowPhase.Architecture => WorkflowPhase.TechResearch,
+            WorkflowPhase.TechResearch => WorkflowPhase.Development,
             WorkflowPhase.Development => WorkflowPhase.QualityAssurance,
             WorkflowPhase.QualityAssurance => WorkflowPhase.DevOps,
             WorkflowPhase.DevOps => WorkflowPhase.Completed,

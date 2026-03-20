@@ -252,7 +252,8 @@ public static class CodeGenerator
         string requirementsContent,
         string architectureContent,
         string? projectName,
-        Dictionary<string, string>? metadata = null)
+        Dictionary<string, string>? metadata = null,
+        string? techReferenceContent = null)
     {
         var appType = metadata?.TryGetValue("appType", out var type) == true
             ? type
@@ -263,6 +264,18 @@ public static class CodeGenerator
             ? string.Empty
             : $"\n{apiHints}\n";
 
+        var techReferenceSection = string.IsNullOrEmpty(techReferenceContent)
+            ? string.Empty
+            : $"""
+
+            ## Riferimento Tecnico (OBBLIGATORIO DA SEGUIRE)
+            {techReferenceContent}
+
+            ATTENZIONE: le informazioni nel Riferimento Tecnico hanno la PRECEDENZA su qualsiasi tua conoscenza pregressa.
+            Usa ESATTAMENTE le versioni NuGet, i nomi di classi e i pattern di inizializzazione documentati sopra.
+
+            """;
+
         return $"""
             Genera il codice C# .NET 8 completo per il progetto "{projectName ?? "App"}".
 
@@ -271,6 +284,7 @@ public static class CodeGenerator
 
             ## Architettura Definita
             {architectureContent}
+            {techReferenceSection}
             {apiHintsSection}
             ## Istruzioni per il Codice
             IMPORTANTE: Segui ESATTAMENTE la struttura definita nella sezione "Struttura del Progetto .NET"

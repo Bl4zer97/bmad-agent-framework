@@ -100,6 +100,9 @@ public class AgentTests
         state.CurrentPhase.Should().Be(WorkflowPhase.Architecture);
 
         state.AdvanceToNextPhase();
+        state.CurrentPhase.Should().Be(WorkflowPhase.TechResearch);
+
+        state.AdvanceToNextPhase();
         state.CurrentPhase.Should().Be(WorkflowPhase.Development);
 
         state.AdvanceToNextPhase();

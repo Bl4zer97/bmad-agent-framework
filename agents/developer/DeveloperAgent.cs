@@ -26,6 +26,13 @@ public class DeveloperAgent : IAgent
         Sei l'Agente Developer del framework BMAD per soluzioni C# .NET 8 su Azure.
         Scrivi codice C# 12 di alta qualità, moderno e ben strutturato.
 
+        REGOLA RIFERIMENTO TECNICO (CRITICA):
+        - Se ricevi un documento di riferimento tecnico, DEVI usare ESATTAMENTE le versioni NuGet indicate
+        - DEVI usare ESATTAMENTE i nomi di classi e metodi documentati nel riferimento tecnico
+        - NON inventare API: se un'API non è nel riferimento tecnico e non sei SICURO al 100% che esista, non usarla
+        - Segui gli snippet di inizializzazione e DI registration del riferimento tecnico alla lettera
+        - Se il riferimento tecnico dice "VERIFICARE MANUALMENTE", ometti quella funzionalità o usa un placeholder esplicito
+
         REGOLA FONDAMENTALE — STRUTTURA DEL PROGETTO:
         - Segui ESATTAMENTE la struttura definita dall'Architect Agent nel documento di architettura (sezione "Struttura del Progetto .NET")
         - NON inventare progetti, layer o namespace non previsti dall'architettura
@@ -164,12 +171,21 @@ public class DeveloperAgent : IAgent
         var architectureArtifact = context.GetArtifact("architecture")
             ?? throw new InvalidOperationException("Manca artefatto 'architecture'");
 
+        // Legge il riferimento tecnico prodotto dal TechResearchAgent (opzionale)
+        var techReferenceArtifact = context.GetArtifact("tech-reference");
+        if (techReferenceArtifact != null)
+        {
+            _logger.LogInformation(
+                "DeveloperAgent: riferimento tecnico trovato — verrà iniettato nel prompt");
+        }
+
         // Costruisce il prompt con tutto il contesto
         var prompt = CodeGenerator.BuildCodeGenerationPrompt(
             requirementsArtifact.Content,
             architectureArtifact.Content,
             context.ProjectName,
-            context.Metadata);
+            context.Metadata,
+            techReferenceArtifact?.Content);
 
         // Genera il codice tramite Azure OpenAI
         var codeResult = await _aiService.GetCompletionAsync(

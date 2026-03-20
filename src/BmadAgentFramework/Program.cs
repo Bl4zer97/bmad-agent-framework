@@ -5,6 +5,7 @@ using BmadAgentFramework.Agents.DevOps;
 using BmadAgentFramework.Agents.Orchestrator;
 using BmadAgentFramework.Agents.QA;
 using BmadAgentFramework.Agents.SolutionExporter;
+using BmadAgentFramework.Agents.TechResearch;
 using BmadAgentFramework.Core.Abstractions;
 using BmadAgentFramework.Core.Configuration;
 using BmadAgentFramework.Core.Models;
@@ -68,6 +69,9 @@ try
             // Architect: progetta l'architettura
             services.AddTransient<ArchitectAgent>();
 
+            // TechResearch: verifica API e versioni NuGet prima dello sviluppo
+            services.AddTransient<TechResearchAgent>();
+
             // Developer: scrive il codice
             services.AddTransient<DeveloperAgent>();
 
@@ -96,11 +100,12 @@ try
 
                 var allAgents = new (string Name, Func<IAgent> Factory)[]
                    {
-                        ("AnalystAgent",    () => provider.GetRequiredService<AnalystAgent>()),
-                        ("ArchitectAgent",  () => provider.GetRequiredService<ArchitectAgent>()),
-                        ("DeveloperAgent",  () => provider.GetRequiredService<DeveloperAgent>()),
-                        ("QAAgent",         () => provider.GetRequiredService<QAAgent>()),
-                        ("DevOpsAgent",     () => provider.GetRequiredService<DevOpsAgent>()),
+                        ("AnalystAgent",       () => provider.GetRequiredService<AnalystAgent>()),
+                        ("ArchitectAgent",     () => provider.GetRequiredService<ArchitectAgent>()),
+                        ("TechResearchAgent",  () => provider.GetRequiredService<TechResearchAgent>()),
+                        ("DeveloperAgent",     () => provider.GetRequiredService<DeveloperAgent>()),
+                        ("QAAgent",            () => provider.GetRequiredService<QAAgent>()),
+                        ("DevOpsAgent",        () => provider.GetRequiredService<DevOpsAgent>()),
                         ("SolutionExporterAgent", () => provider.GetRequiredService<SolutionExporterAgent>()),
                    };
 
