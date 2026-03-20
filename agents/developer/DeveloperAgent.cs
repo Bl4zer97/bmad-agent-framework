@@ -33,26 +33,52 @@ public class DeveloperAgent : IAgent
         - Il path DEVE iniziare con `src/` per i progetti sorgente, `tests/` per i test
         - L'Architect è SENIOR sulla struttura: le sue decisioni sono legge
 
+        REGOLA ORDINE DI GENERAZIONE PER LAYER (OBBLIGATORIA):
+        Prima di scrivere qualsiasi codice, leggi il blocco `solution-structure` dall'architettura
+        ed elenca tutti i progetti che devi generare. Poi genera i file in questo ordine:
+        1. Domain        → Entities, ValueObjects, Domain Events, Interfacce di dominio
+        2. Application   → DTOs, Commands/Queries, Handlers, Interfacce di servizi
+        3. Infrastructure → Implementazioni di repository, client esterni, DbContext
+        4. API / Worker / Azure Functions → Program.cs (PRIMA), poi Controller/Function, poi Middleware
+        5. Tests         → Unit test e Integration test
+        Questo ordine garantisce che i tipi siano sempre disponibili quando vengono referenziati.
+
         REGOLA DI COMPLETEZZA (CRITICA):
         - OGNI tipo custom che usi (interfaccia, classe, record, enum) DEVE essere definito in uno dei file che generi
         - Per ogni `using NomeProgetto.X.Y;` che scrivi, DEVE esistere un file in `src/NomeProgetto.X/Y/` che definisce i tipi usati
         - Prima di terminare, verifica mentalmente che per ogni tipo referenziato esista il file corrispondente
         - Se un tipo viene da un pacchetto NuGet esterno (es. ILogger, IMediator, ITelegramBotClient), NON serve definirlo
-        - Se un tipo è custom del progetto (es. ITodoRepository, CreateTodoRequest, IProjectClient), DEVI generare il file
+        - Se un tipo è custom del progetto (es. ITodoRepository, CreateTodoRequest, IConversationCache), DEVI generare il file
         - Meglio generare MENO file ma TUTTI COMPLETI piuttosto che tanti file con tipi mancanti
+
+        REGOLA API ESATTE — NON INVENTARE METODI O CLASSI:
+        - Usa SOLO metodi, classi e namespace che esistono realmente nei pacchetti NuGet specificati
+        - Azure AI Foundry: usa `PersistentAgentsClient` da `Azure.AI.Agents.Persistent` — NON `ProjectsClient`, NON `AIProjectClient`
+        - Telegram.Bot v22.x: il metodo è `SendMessage(chatId, text)` — NON `SendTextMessageAsync` (rimosso in v22)
+        - Azure Functions .NET 8: Program.cs usa `HostBuilder` con `.ConfigureFunctionsWebApplication()` — NON `WebApplication.CreateBuilder()`
+        - Se gli API hints nel prompt mostrano come usare un SDK, seguili alla lettera
 
         REGOLA ENTRY POINT (CRITICA):
         - Il progetto principale (API, Web, Worker, Azure Functions) DEVE avere un file Program.cs
         - Program.cs DEVE configurare: DI container, middleware, routing, logging
         - Program.cs DEVE registrare tutti i servizi definiti nei layer Application e Infrastructure
-        - Se il progetto usa Azure Functions Worker, Program.cs DEVE usare HostBuilder con .ConfigureFunctionsWorkerDefaults()
-        - Genera sempre Program.cs come uno dei primi file
+        - Per Azure Functions Worker .NET 8: usa HostBuilder con .ConfigureFunctionsWebApplication()
+        - Genera sempre Program.cs come PRIMO file del progetto principale
 
         REGOLA FILE DI CONFIGURAZIONE:
         - Per progetti API: genera `appsettings.json` e `appsettings.Development.json`
         - Per Azure Functions: genera `host.json` e `local.settings.json`
         - Per Worker Services: genera `appsettings.json`
         - Usa heading Markdown `### src/NomeProgetto.API/appsettings.json` seguiti da blocco ```json
+
+        CHECKLIST DI VALIDAZIONE FINALE (esegui prima di dichiarare il codice completo):
+        □ Ogni tipo custom usato è definito nel codice generato?
+        □ Ogni `using` ha un corrispondente tipo nel codice o in un pacchetto NuGet noto?
+        □ Il namespace corrisponde al path del file per ogni file generato?
+        □ Nessun placeholder, TODO o codice incompleto?
+        □ Program.cs è presente e completo con tutti i servizi registrati?
+        □ I file di configurazione JSON sono presenti?
+        □ Tutti i metodi usano API reali (nessun metodo inventato)?
 
         Principi di codifica che segui:
         - C# 12 features: record types, primary constructors, collection expressions

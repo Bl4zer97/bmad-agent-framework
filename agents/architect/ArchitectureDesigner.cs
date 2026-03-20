@@ -82,40 +82,47 @@ public static class ArchitectureDesigner
             - Auto-scaling strategy
 
             ## 9. Struttura del Progetto .NET
-            Definisci la struttura ESATTA della solution .NET in un blocco `solution-structure` parsabile.
-            Il blocco è la FONTE DI VERITÀ per il Developer Agent e il SolutionExporter Agent.
+            Definisci la struttura della solution .NET nel blocco `solution-structure` (vedi sezione 11).
+            La struttura è la FONTE DI VERITÀ per il Developer Agent e il SolutionExporter Agent.
+            Adattala ai requisiti del progetto: non esiste una struttura fissa.
+
+            ## 10. ADR (Architecture Decision Records)
+            Principali decisioni tecniche con motivazioni
+
+            ## 11. Struttura della Solution .NET (OBBLIGATORIO)
+            Produci il seguente blocco ESATTAMENTE in questo formato (è parsato automaticamente dal SolutionExporter):
 
             ```solution-structure
-            SOLUTION: {projectName ?? "MyApp"}
+            SOLUTION: {projectName ?? "NomeSolution"}
             PROJECTS:
-            - Name: {projectName ?? "MyApp"}.Domain | SDK: Microsoft.NET.Sdk | References: (nessuno)
+            - Name: {projectName ?? "NomeSolution"}.Domain | SDK: Microsoft.NET.Sdk | References: (nessuno)
               Folders: Entities/, ValueObjects/, Events/, Interfaces/
-            - Name: {projectName ?? "MyApp"}.Application | SDK: Microsoft.NET.Sdk | References: {projectName ?? "MyApp"}.Domain
+            - Name: {projectName ?? "NomeSolution"}.Application | SDK: Microsoft.NET.Sdk | References: {projectName ?? "NomeSolution"}.Domain
               Folders: DTOs/, Interfaces/, Services/, Validators/
               NuGetPackages: MediatR/12.4.0, FluentValidation/11.9.2, AutoMapper/13.0.1
-            - Name: {projectName ?? "MyApp"}.Infrastructure | SDK: Microsoft.NET.Sdk | References: {projectName ?? "MyApp"}.Application
+            - Name: {projectName ?? "NomeSolution"}.Infrastructure | SDK: Microsoft.NET.Sdk | References: {projectName ?? "NomeSolution"}.Application
               Folders: Data/, Repositories/, Configurations/, Services/
               NuGetPackages: Microsoft.EntityFrameworkCore/8.0.11, Microsoft.EntityFrameworkCore.SqlServer/8.0.11, Azure.Identity/1.13.1
-            - Name: {projectName ?? "MyApp"}.API | SDK: Microsoft.NET.Sdk.Web | References: {projectName ?? "MyApp"}.Application, {projectName ?? "MyApp"}.Infrastructure
+            - Name: {projectName ?? "NomeSolution"}.API | SDK: Microsoft.NET.Sdk.Web | References: {projectName ?? "NomeSolution"}.Application, {projectName ?? "NomeSolution"}.Infrastructure
               Folders: Controllers/, Middleware/, Extensions/
               NuGetPackages: Swashbuckle.AspNetCore/6.9.0, Serilog.AspNetCore/8.0.3
-            - Name: {projectName ?? "MyApp"}.Tests | SDK: Microsoft.NET.Sdk | References: {projectName ?? "MyApp"}.Domain, {projectName ?? "MyApp"}.Application
+            - Name: {projectName ?? "NomeSolution"}.Tests | SDK: Microsoft.NET.Sdk | References: {projectName ?? "NomeSolution"}.Domain, {projectName ?? "NomeSolution"}.Application
               Folders: Unit/, Integration/
               NuGetPackages: xunit/2.9.2, FluentAssertions/6.12.2, Moq/4.20.72, Microsoft.NET.Test.Sdk/17.12.0
             ```
 
-            IMPORTANTE per la struttura:
-            - La struttura NON è fissa: decidila in base ai requisiti (3 o 7 progetti, con/senza CQRS, Workers, ecc.)
-            - Progetti `src/`: usano SDK `Microsoft.NET.Sdk` (librerie) o `Microsoft.NET.Sdk.Web` (API/web)
-            - Progetti di test: vanno sotto `tests/` con SDK `Microsoft.NET.Sdk`
-            - I `References` sono i nomi esatti dei progetti separati da virgola, oppure `(nessuno)`
-            - La riga `NuGetPackages:` elenca i pacchetti NuGet nel formato `NomePacchetto/Versione` separati da virgola
-            - `NuGetPackages:` va sulla riga dopo `Folders:` (o dopo la riga progetto se non ci sono Folders)
-            - Specifica i NuGet effettivamente usati nel codice di quel progetto (non tutti i pacchetti in ogni progetto)
-            - L'esempio sopra è solo un template: adattalo ai requisiti effettivi del progetto
-
-            ## 10. ADR (Architecture Decision Records)
-            Principali decisioni tecniche con motivazioni
+            Regole OBBLIGATORIE per il blocco solution-structure:
+            - Il nome di ogni progetto DEVE usare il pattern NomeSolution.Layer (es. MyApp.Domain, MyApp.API)
+            - SDK: usare Microsoft.NET.Sdk.Web SOLO per il progetto API/presentation; tutti gli altri usano Microsoft.NET.Sdk
+            - SDK: usare Microsoft.NET.Sdk per Azure Functions (non Microsoft.NET.Sdk.Web)
+            - References: elencare i nomi ESATTI dei progetti referenziati separati da virgola, oppure (nessuno)
+            - Folders: elencare le cartelle principali del progetto con trailing slash, separate da virgola
+            - NuGetPackages: elencare SOLO i pacchetti effettivamente usati in quel progetto, nel formato Nome/Versione
+            - Per Azure Functions: includere Microsoft.Azure.Functions.Worker/2.0.0, Microsoft.Azure.Functions.Worker.Sdk/2.0.7, Microsoft.Azure.Functions.Worker.Extensions.Http.AspNetCore/2.1.0
+            - Per Telegram Bot: includere Telegram.Bot/22.0.0 (NON 21.x)
+            - Per Azure AI Agents: includere Azure.AI.Agents.Persistent/1.0.0-beta.3 (NON Azure.AI.Projects)
+            - La struttura NON è fissa: adattala ai requisiti (3 o 7 progetti, con/senza CQRS, Workers, ecc.)
+            - L'esempio sopra è solo un template Clean Architecture: adattalo al progetto specifico
 
             Sii preciso e dettagliato. Il documento è direttamente usato dal Developer Agent.
             """;
